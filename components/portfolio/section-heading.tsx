@@ -1,3 +1,4 @@
+import { MarkedText } from "@/components/marked-text";
 import { cn } from "@/lib/utils";
 
 interface SectionHeadingProps {
@@ -23,13 +24,13 @@ export function SectionHeading({
   return (
     <div className={cn("space-y-3 sm:space-y-4", alignment, className)}>
       <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
-        {eyebrow}
+        <MarkedText text={eyebrow} />
       </p>
       <h2 className="text-balance text-[2rem] font-semibold text-foreground sm:text-[2.35rem] lg:text-[2.65rem]">
-        {title}
+        <MarkedText text={title} />
       </h2>
       <p className="text-pretty text-[15px] leading-7 text-muted-foreground md:text-lg md:leading-8">
-        {description}
+        <MarkedText text={description} />
       </p>
     </div>
   );

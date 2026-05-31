@@ -1,9 +1,11 @@
 import "server-only";
 
-import { assistantConfig, type AssistantMessage } from "@/data/assistant";
+import { type AssistantMessage } from "@/data/assistant";
 import { aboutHardSkillGroups, aboutPersonalFoundation, aboutProfile } from "@/data/about";
 import { educationItems } from "@/data/education";
 import { experienceEntries } from "@/data/experience";
+import type { Locale } from "@/data/i18n";
+import { localizedContent } from "@/data/localized-content";
 import { siteConfig } from "@/data/profile";
 import {
   builtSystemsProjects,
@@ -477,13 +479,30 @@ function selectRelevantSnippets(messages: AssistantMessage[]) {
   return selected.slice(0, 10);
 }
 
-export function buildPortfolioAssistantSystemPrompt(messages: AssistantMessage[]) {
+function getLanguageInstruction(locale: Locale) {
+  if (locale === "id") {
+    return [
+      "Answer in Indonesian.",
+      "When you retain English technical terms, wrap the term with slash markers, for example /Billing/, /Workflow/, /Transaction/, /Monitoring/, /QA/, /release/, /API/, and /UI/.",
+      "Keep exact public links, names, company names, and project titles unchanged when accuracy requires it.",
+    ].join(" ");
+  }
+
+  return "Answer in English.";
+}
+
+export function buildPortfolioAssistantSystemPrompt(
+  messages: AssistantMessage[],
+  locale: Locale = "en",
+) {
   const relevantSnippets = selectRelevantSnippets(messages)
     .map((snippet) => `[${snippet.title}] ${snippet.text}`)
     .join("\n");
+  const helpfulPrompts = localizedContent[locale].assistant.quickQuestions.join(" | ");
 
   return [
     `You are the portfolio assistant for ${siteConfig.author.name}.`,
+    getLanguageInstruction(locale),
     "Answer only from the provided portfolio snippets.",
     "Do not be generic when the snippets contain specific names, systems, roles, tools, project titles, or links.",
     "Use exact portfolio facts when available.",
@@ -498,7 +517,7 @@ export function buildPortfolioAssistantSystemPrompt(messages: AssistantMessage[]
     "When using numbered sections, number them sequentially as 1., 2., 3., and so on.",
     "Do not use Markdown tables, raw pipe tables, or HTML tags such as <br>; use readable bullets instead.",
     "Avoid wall-of-text replies. Separate different ideas with a blank line.",
-    `Helpful portfolio prompts: ${assistantConfig.quickQuestions.join(" | ")}.`,
+    `Helpful portfolio prompts: ${helpfulPrompts}.`,
     "",
     "Relevant portfolio snippets:",
     relevantSnippets,

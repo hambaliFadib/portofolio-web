@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { renderMarkedText } from "@/components/marked-text";
 import { cn } from "@/lib/utils";
 
 interface AssistantMessageContentProps {
@@ -239,7 +240,11 @@ function renderInlineText(text: string) {
             );
           }
 
-          return <Fragment key={`${partIndex}-${part}`}>{part}</Fragment>;
+          return (
+            <Fragment key={`${partIndex}-${part}`}>
+              {renderMarkedText(part, `assistant-${lineIndex}-${partIndex}`)}
+            </Fragment>
+          );
         })}
       </Fragment>
     );

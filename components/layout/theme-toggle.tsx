@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { MoonStar, SunMedium } from "lucide-react";
@@ -24,6 +24,18 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
     ? `Switch to ${nextTheme} mode`
     : "Toggle color mode";
 
+  function toggleTheme() {
+    const root = document.documentElement;
+
+    root.dataset.themeTarget = nextTheme;
+    root.classList.add("theme-transitioning");
+    window.setTimeout(() => {
+      root.classList.remove("theme-transitioning");
+      delete root.dataset.themeTarget;
+    }, 380); // must exceed CSS transition-duration (320ms) + small buffer
+    setTheme(nextTheme);
+  }
+
   return (
     <Button
       type="button"
@@ -35,7 +47,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         "relative h-10 w-10 rounded-full border-border/80 bg-background/85 text-foreground/80 shadow-none backdrop-blur-sm hover:bg-background dark:bg-background/75",
         className,
       )}
-      onClick={() => setTheme(nextTheme)}
+      onClick={toggleTheme}
     >
       <SunMedium
         className={cn(

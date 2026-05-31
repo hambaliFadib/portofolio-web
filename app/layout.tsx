@@ -1,7 +1,9 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
+import { PageMotion } from "@/components/layout/page-motion";
+import { LanguageProvider } from "@/components/language-provider";
 import { ClarityAIWidget } from "@/components/portfolio/clarity-ai-widget";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/data/profile";
@@ -43,15 +45,16 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
         >
-          <div className="relative flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-            <ClarityAIWidget />
-          </div>
-          <Analytics />
+          <LanguageProvider>
+            <div className="relative flex min-h-screen flex-col">
+              <Header />
+              <PageMotion>{children}</PageMotion>
+              <Footer />
+              <ClarityAIWidget />
+            </div>
+            <Analytics />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

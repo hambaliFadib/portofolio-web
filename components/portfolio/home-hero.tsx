@@ -1,30 +1,36 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { heroContent, siteConfig } from "@/data/profile";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText } from "@/components/marked-text";
+import { heroContent } from "@/data/profile";
 
 export function HomeHero() {
+  const { t } = useLanguage();
+
   return (
     <section className="px-6 py-20 sm:py-24 lg:py-28">
       <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
         <div className="max-w-3xl space-y-8">
           <div className="space-y-6">
             <p className="font-mono text-xs font-medium uppercase text-primary/80">
-              {siteConfig.author.role}
+              <MarkedText text={t.home.role} />
             </p>
             <h1 className="text-5xl font-semibold leading-[1.02] text-foreground sm:text-6xl lg:text-7xl">
               Hambali Fadib
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl sm:leading-9">
-              {heroContent.description}
+              <MarkedText text={t.home.description} />
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild size="lg" className="h-12 rounded-full px-6">
               <Link href={heroContent.primaryCta.href}>
-                {heroContent.primaryCta.label}
+                <MarkedText text={t.home.primaryCta} />
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -34,7 +40,9 @@ export function HomeHero() {
               size="lg"
               className="h-12 rounded-full border-border/80 bg-background/80 px-6"
             >
-              <Link href="/quality-thinking">Quality Thinking</Link>
+              <Link href="/quality-thinking">
+                <MarkedText text={t.home.secondaryCta} />
+              </Link>
             </Button>
           </div>
         </div>

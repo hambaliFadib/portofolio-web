@@ -1,14 +1,19 @@
+"use client";
+
 import { GitBranch, ShieldCheck, Workflow } from "lucide-react";
-import { homeCapabilities } from "@/data/profile";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText } from "@/components/marked-text";
 import { Card, CardContent } from "@/components/ui/card";
 
 const capabilityIcons = [Workflow, ShieldCheck, GitBranch] as const;
 
 export function HomeCapabilitySection() {
+  const { t } = useLanguage();
+
   return (
     <section className="px-6 pb-28">
       <div className="mx-auto grid max-w-7xl auto-rows-fr gap-4 md:grid-cols-3">
-        {homeCapabilities.slice(0, 3).map((capability, index) => {
+        {t.home.capabilities.map((capability, index) => {
           const Icon = capabilityIcons[index] ?? ShieldCheck;
 
           return (
@@ -22,10 +27,10 @@ export function HomeCapabilitySection() {
                 </div>
                 <div className="space-y-3">
                   <h2 className="text-2xl font-semibold text-foreground">
-                    {capability.title}
+                    <MarkedText text={capability.title} />
                   </h2>
                   <p className="text-sm leading-7 text-muted-foreground">
-                    {capability.description}
+                    <MarkedText text={capability.description} />
                   </p>
                 </div>
               </CardContent>

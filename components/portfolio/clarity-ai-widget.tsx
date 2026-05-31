@@ -17,7 +17,10 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { assistantConfig, type AssistantMessage } from "@/data/assistant";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText, stripInlineMarkers } from "@/components/marked-text";
+import { type AssistantMessage } from "@/data/assistant";
+import { localizedContent } from "@/data/localized-content";
 import { AssistantMessageContent } from "@/components/portfolio/assistant-message-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,15 +65,7 @@ const codeParticleSymbols = [
   ";",
 ] as const;
 
-const knowledgeDomains = [
-  "Portfolio Overview",
-  "Projects",
-  "QA Thinking",
-  "About Hambali",
-  "Contact",
-] as const;
-
-function ThinkingLoader() {
+function ThinkingLoader({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="thinking-bulb relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/8 text-primary">
@@ -82,7 +77,7 @@ function ThinkingLoader() {
 
       <span>
         <span className="block text-sm font-medium text-foreground">
-          {assistantConfig.loadingLabel}
+          {label}
         </span>
         <span className="mt-1 flex items-center gap-1.5" aria-hidden="true">
           <span className="thinking-bar h-1.5 w-5 rounded-full bg-primary/55" />
@@ -286,11 +281,17 @@ function AiParticleField() {
 function AssistantStatusBadge({
   isLoading,
   hasError,
+  labels,
 }: {
   isLoading: boolean;
   hasError: boolean;
+  labels: (typeof localizedContent)["en"]["assistant"]["status"];
 }) {
-  const label = hasError ? "AI Offline" : isLoading ? "AI Thinking" : "AI Active";
+  const label = hasError
+    ? labels.offline
+    : isLoading
+      ? labels.thinking
+      : labels.active;
 
   return (
     <div
@@ -318,10 +319,12 @@ function AssistantStatusBadge({
 function MessageList({
   messages,
   isLoading,
+  loadingLabel,
   className,
 }: {
   messages: AssistantMessage[];
   isLoading: boolean;
+  loadingLabel: string;
   className?: string;
 }) {
   return (
@@ -351,7 +354,7 @@ function MessageList({
       {isLoading ? (
         <div className="flex justify-start">
           <div className="max-w-[92%] rounded-lg border border-border/70 bg-card/96 px-3.5 py-3 text-sm text-muted-foreground shadow-sm">
-            <ThinkingLoader />
+            <ThinkingLoader label={loadingLabel} />
           </div>
         </div>
       ) : null}
@@ -360,6 +363,8 @@ function MessageList({
 }
 
 export function ClarityAIWidget() {
+  const { locale } = useLanguage();
+  const assistantText = localizedContent[locale].assistant;
   const [mode, setMode] = useState<WidgetMode>("closed");
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -367,6 +372,11 @@ export function ClarityAIWidget() {
   const [error, setError] = useState<string | null>(null);
   const compactViewportRef = useRef<HTMLDivElement | null>(null);
   const workspaceViewportRef = useRef<HTMLDivElement | null>(null);
+
+  // Animation state: true while the compact card is playing its exit animation
+  // before transitioning to workspace mode.
+  const [compactExiting, setCompactExiting] = useState(false);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const viewport =
@@ -390,8 +400,29 @@ export function ClarityAIWidget() {
   }
 
   function closeWidget() {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    setCompactExiting(false);
     clearSession();
     setMode("closed");
+  }
+
+  /** Open the compact card with its unfold animation. */
+  function openCompact() {
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    setCompactExiting(false);
+    setMode("compact");
+  }
+
+  /**
+   * Trigger compact card fold-out animation, then switch to workspace mode.
+   * The timer duration matches .chat-compact-exit animation duration (240ms).
+   */
+  function startExpandToWorkspace() {
+    setCompactExiting(true);
+    exitTimerRef.current = setTimeout(() => {
+      setMode("workspace");
+      setCompactExiting(false);
+    }, 210);
   }
 
   async function requestAssistantReply(conversation: AssistantMessage[]) {
@@ -404,13 +435,13 @@ export function ClarityAIWidget() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: conversation }),
+        body: JSON.stringify({ messages: conversation, locale }),
       });
 
       const payload = (await response.json().catch(() => null)) as AssistantRouteResponse | null;
 
       if (!response.ok || !payload?.message) {
-        throw new Error(payload?.error ?? assistantConfig.errorMessage);
+        throw new Error(payload?.error ?? assistantText.errorMessage);
       }
 
       setMessages((current) => [...current, payload.message as AssistantMessage]);
@@ -418,7 +449,7 @@ export function ClarityAIWidget() {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : assistantConfig.errorMessage,
+          : assistantText.errorMessage,
       );
     } finally {
       setIsLoading(false);
@@ -465,17 +496,28 @@ export function ClarityAIWidget() {
       {mode === "closed" ? (
         <button
           type="button"
-          aria-label="Open Clarity AI"
+          aria-label={assistantText.aria.open}
           className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_45px_-18px_rgba(20,33,61,0.55)] transition-[transform,box-shadow,opacity] duration-300 hover:opacity-95 hover:shadow-[0_22px_55px_-18px_rgba(20,33,61,0.62)] motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-0"
-          onClick={() => setMode("compact")}
+          onClick={openCompact}
         >
           <MessageSquareText className="h-5 w-5" />
         </button>
       ) : null}
 
       {mode === "compact" ? (
-        <div className="fixed inset-0 z-50 bg-background/45 backdrop-blur-sm">
-          <div className="ai-system-grid absolute bottom-6 right-6 flex h-[min(42rem,calc(100vh-3rem))] w-[min(26rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-border/80 bg-card/98 shadow-[0_28px_70px_-36px_rgba(20,33,61,0.55)]">
+        <div
+          className="fixed inset-0 z-50 bg-background/45 backdrop-blur-sm"
+          style={{
+            opacity:    compactExiting ? 0 : undefined,
+            transition: compactExiting ? "opacity 240ms ease" : undefined,
+          }}
+        >
+          <div
+            className={cn(
+              "ai-system-grid absolute bottom-6 right-6 flex h-[min(42rem,calc(100vh-3rem))] w-[min(26rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-border/80 bg-card/98 shadow-[0_28px_70px_-36px_rgba(20,33,61,0.55)]",
+              compactExiting ? "chat-compact-exit" : "chat-compact-enter",
+            )}
+          >
             <AiParticleField />
             <div className="border-b border-border/70 px-5 py-4">
               <div className="flex items-start justify-between gap-3">
@@ -485,10 +527,10 @@ export function ClarityAIWidget() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-base font-semibold text-foreground">
-                      Clarity AI
+                      <MarkedText text={assistantText.title} />
                     </p>
                     <p className="text-xs leading-5 text-muted-foreground">
-                      Architectural reasoning assistant
+                      <MarkedText text={assistantText.compactDescription} />
                     </p>
                   </div>
                 </div>
@@ -499,8 +541,8 @@ export function ClarityAIWidget() {
                     variant="ghost"
                     size="icon-sm"
                     className="rounded-full"
-                    aria-label="Expand Clarity AI"
-                    onClick={() => setMode("workspace")}
+                    aria-label={assistantText.aria.expand}
+                    onClick={startExpandToWorkspace}
                   >
                     <Expand className="h-4 w-4" />
                   </Button>
@@ -509,7 +551,7 @@ export function ClarityAIWidget() {
                     variant="ghost"
                     size="icon-sm"
                     className="rounded-full"
-                    aria-label="Close Clarity AI"
+                    aria-label={assistantText.aria.close}
                     onClick={closeWidget}
                   >
                     <X className="h-4 w-4" />
@@ -523,16 +565,20 @@ export function ClarityAIWidget() {
               className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
             >
               {hasConversation || isLoading ? (
-                <MessageList messages={messages} isLoading={isLoading} />
+                <MessageList
+                  messages={messages}
+                  isLoading={isLoading}
+                  loadingLabel={assistantText.loadingLabel}
+                />
               ) : (
                 <div className="flex min-h-full flex-col justify-between gap-6">
                   <div className="rounded-lg border border-border/70 bg-secondary/45 p-4">
                     <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                       <Sparkles className="h-4 w-4 text-primary" />
-                      Suggested prompts
+                      <MarkedText text={assistantText.suggestedPrompts} />
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {assistantConfig.quickQuestions.slice(0, 4).map((question) => (
+                      {assistantText.quickQuestions.slice(0, 4).map((question) => (
                         <Button
                           key={question}
                           type="button"
@@ -541,7 +587,7 @@ export function ClarityAIWidget() {
                           className="h-auto rounded-full bg-background/85 px-3 py-2 text-left text-xs leading-5 text-muted-foreground hover:text-foreground"
                           onClick={() => submitPrompt(question)}
                         >
-                          {question}
+                          <MarkedText text={question} />
                         </Button>
                       ))}
                     </div>
@@ -561,7 +607,7 @@ export function ClarityAIWidget() {
                 <Input
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Ask about projects, QA thinking, or contact..."
+                  placeholder={stripInlineMarkers(assistantText.placeholder)}
                   className="h-11 min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0"
                   disabled={isLoading}
                 />
@@ -569,14 +615,14 @@ export function ClarityAIWidget() {
                   type="submit"
                   size="icon"
                   className="h-11 w-11 rounded-md"
-                  aria-label="Send message"
+                  aria-label={assistantText.aria.send}
                   disabled={isLoading}
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                Clarity AI may produce inaccurate information.
+                <MarkedText text={assistantText.disclaimer} />
               </p>
             </form>
           </div>
@@ -584,30 +630,32 @@ export function ClarityAIWidget() {
       ) : null}
 
       {mode === "workspace" ? (
-        <div className="fixed inset-0 z-50 flex bg-background text-foreground">
+        <div className="fixed inset-0 z-50 flex bg-background text-foreground chat-workspace-enter">
           <aside className="hidden w-72 shrink-0 border-r border-border/70 bg-card/92 p-5 md:flex md:flex-col">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/70 bg-background/90 text-foreground">
                 <AiLogoIcon className="h-[23px] w-[14px]" />
               </div>
               <div>
-                <p className="font-semibold">Clarity AI</p>
+                <p className="font-semibold">
+                  <MarkedText text={assistantText.title} />
+                </p>
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Architectural reasoning assistant
+                  <MarkedText text={assistantText.compactDescription} />
                 </p>
               </div>
             </div>
 
             <div className="mt-8 space-y-2">
               <p className="text-xs font-medium uppercase text-muted-foreground">
-                Knowledge domains
+                <MarkedText text={assistantText.knowledgeDomainsLabel} />
               </p>
-              {knowledgeDomains.map((domain) => (
+              {assistantText.knowledgeDomains.map((domain) => (
                 <div
                   key={domain}
                   className="rounded-lg border border-border/70 bg-background/70 px-3 py-3 text-sm text-foreground/85"
                 >
-                  {domain}
+                  <MarkedText text={domain} />
                 </div>
               ))}
             </div>
@@ -619,7 +667,7 @@ export function ClarityAIWidget() {
               onClick={clearSession}
             >
               <Eraser className="h-4 w-4" />
-              New Session
+              <MarkedText text={assistantText.newSession} />
             </Button>
           </aside>
 
@@ -627,27 +675,30 @@ export function ClarityAIWidget() {
             <AiParticleField />
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-border/70 bg-background/88 px-4 backdrop-blur md:px-6">
               <div className="min-w-0 md:hidden">
-                <p className="font-semibold">Clarity AI</p>
+                <p className="font-semibold">
+                  <MarkedText text={assistantText.title} />
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  Architectural reasoning assistant
+                  <MarkedText text={assistantText.compactDescription} />
                 </p>
               </div>
               <div className="hidden min-w-0 md:block">
                 <p className="text-sm text-muted-foreground">
-                  Portfolio reasoning workspace
+                  <MarkedText text={assistantText.workspaceLabel} />
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <AssistantStatusBadge
                   isLoading={isLoading}
                   hasError={Boolean(error)}
+                  labels={assistantText.status}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="rounded-full"
-                  aria-label="Close Clarity AI workspace"
+                  aria-label={assistantText.aria.closeWorkspace}
                   onClick={closeWidget}
                 >
                   <X className="h-5 w-5" />
@@ -658,7 +709,11 @@ export function ClarityAIWidget() {
             <div ref={workspaceViewportRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-36 pt-8 md:px-8">
               <div className="mx-auto max-w-3xl">
                 {hasConversation || isLoading ? (
-                  <MessageList messages={messages} isLoading={isLoading} />
+                  <MessageList
+                    messages={messages}
+                    isLoading={isLoading}
+                    loadingLabel={assistantText.loadingLabel}
+                  />
                 ) : (
                   <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center">
                     <div className="max-w-xl text-center">
@@ -666,14 +721,13 @@ export function ClarityAIWidget() {
                         <CornerDownLeft className="h-6 w-6" />
                       </div>
                       <h2 className="mt-6 text-3xl font-semibold text-foreground">
-                        Portfolio context, structured for decisions.
+                        <MarkedText text={assistantText.emptyTitle} />
                       </h2>
                       <p className="mt-4 text-sm leading-7 text-muted-foreground">
-                        Projects, QA thinking, background, and contact paths are
-                        available as focused knowledge domains.
+                        <MarkedText text={assistantText.emptyDescription} />
                       </p>
                       <div className="mt-6 flex flex-wrap justify-center gap-2">
-                        {assistantConfig.quickQuestions.map((question) => (
+                        {assistantText.quickQuestions.map((question) => (
                           <Button
                             key={question}
                             type="button"
@@ -682,7 +736,7 @@ export function ClarityAIWidget() {
                             className="h-auto rounded-full bg-background/85 px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => submitPrompt(question)}
                           >
-                            {question}
+                            <MarkedText text={question} />
                           </Button>
                         ))}
                       </div>
@@ -708,7 +762,7 @@ export function ClarityAIWidget() {
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={handleWorkspaceKeyDown}
-                    placeholder="Ask Clarity AI about this portfolio..."
+                    placeholder={stripInlineMarkers(assistantText.workspacePlaceholder)}
                     className="max-h-32 min-h-12 flex-1 resize-none border-0 bg-transparent px-3 py-3 text-sm shadow-none focus-visible:ring-0"
                     disabled={isLoading}
                   />
@@ -717,12 +771,12 @@ export function ClarityAIWidget() {
                     className="h-11 rounded-md px-4"
                     disabled={isLoading}
                   >
-                    Send
+                    <MarkedText text={assistantText.send} />
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                  Clarity AI may produce inaccurate information.
+                  <MarkedText text={assistantText.disclaimer} />
                 </p>
               </div>
             </form>

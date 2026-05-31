@@ -18,18 +18,11 @@ import {
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText } from "@/components/marked-text";
 import { SectionHeading } from "@/components/portfolio/section-heading";
 import { Badge } from "@/components/ui/badge";
-import {
-  realDecisionCaseFields,
-  realDecisionCasePlaceholderLabel,
-  realDecisionCaseStructure,
-  realDecisionCaseStructureTitle,
-  realDecisionCasesFooterNote,
-  realDecisionCasesIntro,
-  realDecisionCasesPrinciple,
-  reservedDecisionCases,
-} from "@/data/real-decision-cases";
+import { localizedContent } from "@/data/localized-content";
 import { cn } from "@/lib/utils";
 
 const mapWidth = 1160;
@@ -63,6 +56,8 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function RealDecisionCasesSection() {
+  const { locale } = useLanguage();
+  const content = localizedContent[locale].realDecision;
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef({
     active: false,
@@ -78,11 +73,11 @@ export function RealDecisionCasesSection() {
   const [mapZoom, setMapZoom] = useState(1);
   const [mapPan, setMapPan] = useState<MapPan>({ x: 0, y: 0 });
   const [isDraggingMap, setIsDraggingMap] = useState(false);
-  const activeStepIndex = realDecisionCaseStructure.findIndex(
+  const activeStepIndex = content.structure.findIndex(
     (item) => item.id === expandedStepId,
   );
   const activeStep =
-    activeStepIndex >= 0 ? realDecisionCaseStructure[activeStepIndex] : null;
+    activeStepIndex >= 0 ? content.structure[activeStepIndex] : null;
   const activePosition =
     activeStepIndex >= 0
       ? childNodePositions[activeStepIndex % childNodePositions.length]
@@ -338,12 +333,12 @@ export function RealDecisionCasesSection() {
       <div className="mx-auto max-w-7xl space-y-10">
         <div className="space-y-4">
           <SectionHeading
-            eyebrow={realDecisionCasesIntro.eyebrow}
-            title={realDecisionCasesIntro.title}
-            description={realDecisionCasesIntro.description}
+            eyebrow={content.intro.eyebrow}
+            title={content.intro.title}
+            description={content.intro.description}
           />
           <p className="max-w-[46rem] text-sm leading-7 text-muted-foreground">
-            {realDecisionCasesIntro.supportingSentence}
+            <MarkedText text={content.intro.supportingSentence} />
           </p>
         </div>
 
@@ -351,17 +346,17 @@ export function RealDecisionCasesSection() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-background/82 px-4 py-3">
             <div>
               <p className="font-mono text-[11px] uppercase text-primary/80">
-                Decision map
+                <MarkedText text={content.labels.decisionMap} />
               </p>
               <p className="text-xs leading-5 text-muted-foreground">
-                Click the root node to reveal the branches.
+                <MarkedText text={content.labels.mapInstruction} />
               </p>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Zoom out decision map"
+                aria-label={content.labels.zoomOut}
                 className="flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => changeZoom(-0.1)}
               >
@@ -372,7 +367,7 @@ export function RealDecisionCasesSection() {
               </span>
               <button
                 type="button"
-                aria-label="Zoom in decision map"
+                aria-label={content.labels.zoomIn}
                 className="flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
                 onClick={() => changeZoom(0.1)}
               >
@@ -380,7 +375,7 @@ export function RealDecisionCasesSection() {
               </button>
               <button
                 type="button"
-                aria-label="Reset decision map zoom"
+                aria-label={content.labels.resetZoom}
                 className="flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
                 onClick={resetZoom}
               >
@@ -430,7 +425,7 @@ export function RealDecisionCasesSection() {
                   viewBox={`0 0 ${mapWidth} ${mapHeight}`}
                   aria-hidden="true"
                 >
-                  {realDecisionCaseStructure.map((item, index) => {
+                  {content.structure.map((item, index) => {
                     const position =
                       childNodePositions[index % childNodePositions.length];
                     const rootX = rootOpenPosition.x + rootOpenPosition.width;
@@ -487,18 +482,28 @@ export function RealDecisionCasesSection() {
                     <Network className="h-5 w-5" />
                   </span>
                   <p className="mt-5 font-mono text-[10px] uppercase text-primary/80">
-                    Root node
+                    <MarkedText text={content.labels.rootNode} />
                   </p>
                   <h3 className="mt-2 text-xl font-semibold leading-tight text-foreground">
-                    Real Decision Cases
+                    <MarkedText text={content.intro.title} />
                   </h3>
                   <p className="mt-3 text-sm leading-7 text-muted-foreground">
-                    {isMapOpen
-                      ? realDecisionCaseStructureTitle
-                      : "Click to open the decision tree."}
+                    <MarkedText
+                      text={
+                        isMapOpen
+                          ? content.structureTitle
+                          : content.labels.closedRootInstruction
+                      }
+                    />
                   </p>
                   <span className="mt-4 inline-flex items-center gap-2 font-mono text-[10px] uppercase text-primary">
-                    {isMapOpen ? "Collapse map" : "Reveal branches"}
+                    <MarkedText
+                      text={
+                        isMapOpen
+                          ? content.labels.collapseMap
+                          : content.labels.revealBranches
+                      }
+                    />
                     <ChevronRight
                       className={cn(
                         "h-3.5 w-3.5 transition-transform duration-300",
@@ -508,7 +513,7 @@ export function RealDecisionCasesSection() {
                   </span>
                 </button>
 
-                {realDecisionCaseStructure.map((item, index) => {
+                {content.structure.map((item, index) => {
                   const position =
                     childNodePositions[index % childNodePositions.length];
                   const isExpanded = item.id === expandedStepId;
@@ -552,7 +557,7 @@ export function RealDecisionCasesSection() {
                           {String(index + 1).padStart(2, "0")}
                         </span>
                         <span className="min-w-0 flex-1 text-sm font-semibold leading-5 text-foreground">
-                          {item.title}
+                          <MarkedText text={item.title} />
                         </span>
                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-primary/15 bg-primary/5 text-primary">
                           <ChevronRight
@@ -578,23 +583,23 @@ export function RealDecisionCasesSection() {
                     }}
                   >
                     <p className="font-mono text-[10px] uppercase text-primary/80">
-                      Expanded detail
+                      <MarkedText text={content.labels.expandedDetail} />
                     </p>
                     <h4 className="mt-2 text-base font-semibold text-foreground">
-                      {activeStep.title}
+                      <MarkedText text={activeStep.title} />
                     </h4>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      {activeStep.description}
+                      <MarkedText text={activeStep.description} />
                     </p>
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                      {["Risk", "Proof", "Owner"].map((label) => (
+                      {content.labels.detailChips.map((label) => (
                         <div
                           key={label}
                           className="rounded-md border border-border/70 bg-background/74 px-2 py-2"
                         >
                           <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                           <p className="mt-1 text-[11px] font-semibold text-foreground">
-                            {label}
+                            <MarkedText text={label} />
                           </p>
                         </div>
                       ))}
@@ -610,13 +615,13 @@ export function RealDecisionCasesSection() {
           <>
             <div className="rounded-lg border border-primary/18 bg-primary/5 p-5">
               <p className="font-mono text-[11px] uppercase text-primary/80">
-                Publication principle
+                <MarkedText text={content.principle.title} />
               </p>
               <h3 className="mt-2 text-xl font-semibold text-foreground">
-                {realDecisionCasesPrinciple.title}
+                <MarkedText text={content.principle.title} />
               </h3>
               <p className="mt-3 max-w-4xl text-sm leading-7 text-foreground/85">
-                {realDecisionCasesPrinciple.body}
+                <MarkedText text={content.principle.body} />
               </p>
             </div>
 
@@ -624,26 +629,26 @@ export function RealDecisionCasesSection() {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-mono text-[11px] uppercase text-primary/80">
-                    Evidence slots
+                    <MarkedText text={content.labels.evidenceSlots} />
                   </p>
                   <h3 className="mt-2 text-2xl font-semibold text-foreground">
-                    Reserved cases expand only when the reader asks.
+                    <MarkedText text={content.labels.evidenceSlotsTitle} />
                   </h3>
                 </div>
                 <Badge
                   variant="outline"
                   className="w-fit rounded-full border-primary/15 bg-primary/5 text-primary"
                 >
-                  Public-safe
+                  <MarkedText text={content.labels.publicSafe} />
                 </Badge>
               </div>
 
               <div className="mt-5 space-y-3">
-                {reservedDecisionCases.map((decisionCase, index) => {
+                {content.cases.map((decisionCase, index) => {
                   const isExpanded = decisionCase.id === expandedCaseId;
                   const publicationLabel = decisionCase.isPublished
-                    ? "Published decision case"
-                    : realDecisionCasePlaceholderLabel;
+                    ? content.labels.publishedCase
+                    : content.placeholderLabel;
 
                   return (
                     <div
@@ -670,14 +675,14 @@ export function RealDecisionCasesSection() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block font-mono text-[10px] uppercase text-muted-foreground">
-                            {publicationLabel}
+                            <MarkedText text={publicationLabel} />
                           </span>
                           <span className="mt-1 block text-base font-semibold leading-6 text-foreground">
-                            {decisionCase.title}
+                            <MarkedText text={decisionCase.title} />
                           </span>
                           <span className="mt-2 flex items-center gap-2 text-xs leading-5 text-muted-foreground">
                             <LockKeyhole className="h-3.5 w-3.5 text-primary" />
-                            {decisionCase.status}
+                            <MarkedText text={decisionCase.status} />
                           </span>
                         </span>
                         <ChevronDown
@@ -698,17 +703,17 @@ export function RealDecisionCasesSection() {
                       >
                         <div className="overflow-hidden">
                           <div className="grid gap-3 border-t border-border/70 px-4 pb-4 pt-4 md:grid-cols-3">
-                            {realDecisionCaseFields.map((field) => (
+                            {content.fields.map((field) => (
                               <div
                                 key={field.key}
                                 className="rounded-lg border border-border/70 bg-card/80 p-4"
                               >
                                 <FileSearch className="h-4 w-4 text-primary" />
                                 <p className="mt-3 font-mono text-[10px] uppercase text-primary/80">
-                                  {field.label}
+                                  <MarkedText text={field.label} />
                                 </p>
                                 <p className="mt-2 text-sm leading-6 text-foreground/86">
-                                  {decisionCase[field.key]}
+                                  <MarkedText text={decisionCase[field.key]} />
                                 </p>
                               </div>
                             ))}
@@ -722,7 +727,7 @@ export function RealDecisionCasesSection() {
             </div>
 
             <p className="max-w-[48rem] text-sm leading-7 text-muted-foreground">
-              {realDecisionCasesFooterNote}
+              <MarkedText text={content.footerNote} />
             </p>
           </>
         ) : null}

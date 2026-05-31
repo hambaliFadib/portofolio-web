@@ -8,6 +8,7 @@ import {
 } from "@/lib/portfolio-assistant";
 
 const requestSchema = z.object({
+  locale: z.enum(["en", "id"]).optional().default("en"),
   messages: z
     .array(
       z.object({
@@ -23,19 +24,27 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  let locale: "en" | "id" = "en";
+
   try {
     const body = requestSchema.parse(await request.json());
+    locale = body.locale;
     const messages = sanitizeAssistantMessages(body.messages as AssistantMessage[]);
 
     if (messages.length === 0) {
       return NextResponse.json(
-        { error: "At least one user message is required." },
+        {
+          error:
+            locale === "id"
+              ? "Minimal satu pesan pengguna diperlukan."
+              : "At least one user message is required.",
+        },
         { status: 400 },
       );
     }
 
     const content = await requestOpenRouterChatCompletion({
-      systemPrompt: buildPortfolioAssistantSystemPrompt(messages),
+      systemPrompt: buildPortfolioAssistantSystemPrompt(messages, locale),
       messages,
     });
 
@@ -58,9 +67,13 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error
         ? error.message === "OpenRouter API key is not configured."
-          ? "Clarity AI is not configured yet. Add OPENROUTER_API_KEY to .env or .env.local, then restart the Next.js server."
+          ? locale === "id"
+            ? "Clarity AI belum dikonfigurasi. Tambahkan OPENROUTER_API_KEY ke .env atau .env.local, lalu restart server Next.js."
+            : "Clarity AI is not configured yet. Add OPENROUTER_API_KEY to .env or .env.local, then restart the Next.js server."
           : error.message
-        : "Clarity AI is temporarily unavailable.";
+        : locale === "id"
+          ? "Clarity AI sementara tidak tersedia."
+          : "Clarity AI is temporarily unavailable.";
 
     return NextResponse.json({ error: message }, { status: 503 });
   }

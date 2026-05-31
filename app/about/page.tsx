@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { IdentityMarker } from "@/components/portfolio/identity-marker";
+import { LocalizedText } from "@/components/localized-text";
 import {
   aboutCvAction,
   aboutFinalStatement,
@@ -20,6 +21,8 @@ import {
   aboutPersonalFoundation,
   aboutProfile,
 } from "@/data/about";
+import { dictionary } from "@/data/i18n";
+import { localizedContent } from "@/data/localized-content";
 import { educationItems } from "@/data/education";
 import { experienceEntries } from "@/data/experience";
 import {
@@ -66,9 +69,9 @@ function AboutSectionHeading({
   description,
   centered = false,
 }: {
-  eyebrow: string;
-  title: string;
-  description?: string;
+  eyebrow: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
   centered?: boolean;
 }) {
   return (
@@ -86,15 +89,57 @@ function AboutSectionHeading({
 
 function EducationRange({ item }: { item: (typeof educationItems)[number] }) {
   if (!item.expectedGraduation) {
-    return <>{formatTimelineRange(item.range)}</>;
+    return (
+      <LocalizedText
+        text={{
+          en: formatTimelineRange(item.range, "en"),
+          id: formatTimelineRange(item.range, "id"),
+        }}
+      />
+    );
   }
 
   return (
-    <>
-      {formatTimelineRange(item.range)} / expected{" "}
-      {formatMonthYear(item.expectedGraduation)}
-    </>
+    <LocalizedText
+      text={{
+        en: `${formatTimelineRange(item.range, "en")} / ${
+          dictionary.en.about.expected
+        } ${formatMonthYear(item.expectedGraduation, "en")}`,
+        id: `${formatTimelineRange(item.range, "id")} / ${
+          dictionary.id.about.expected
+        } ${formatMonthYear(item.expectedGraduation, "id")}`,
+      }}
+    />
   );
+}
+
+function TimelineMarker({ active }: { active: boolean }) {
+  return (
+    <span
+      className={[
+        "absolute -left-[1.95rem] top-2 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm transition-colors duration-300",
+        active
+          ? "border-primary bg-primary shadow-[0_0_0_5px_rgba(37,99,135,0.1)]"
+          : "border-primary/70",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "h-2.5 w-2.5 rounded-full transition-colors duration-300",
+          active ? "bg-primary-foreground" : "bg-transparent",
+        ].join(" ")}
+      />
+    </span>
+  );
+}
+
+const idAboutContent = localizedContent.id.about;
+
+function localizedCopy(en: string, id?: string) {
+  return {
+    en,
+    id: id ?? en,
+  };
 }
 
 export default function AboutPage() {
@@ -105,22 +150,42 @@ export default function AboutPage() {
           <div className="max-w-3xl space-y-8">
             <div className="space-y-6">
               <h1 className="text-5xl font-semibold leading-[1.06] text-foreground sm:text-6xl">
-                Architecting Quality, Ensuring Stability.
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.title,
+                    id: dictionary.id.about.title,
+                  }}
+                />
               </h1>
               <p className="max-w-2xl text-lg leading-9 text-muted-foreground">
-                {aboutProfile.summary}
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.summary,
+                    id: dictionary.id.about.summary,
+                  }}
+                />
               </p>
             </div>
 
             <blockquote className="border-l-2 border-primary/50 pl-5 text-xl italic leading-9 text-foreground/82">
-              {aboutProfile.principle}
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.principle,
+                  id: dictionary.id.about.principle,
+                }}
+              />
             </blockquote>
 
             <div className="flex flex-wrap gap-3">
               <Button asChild size="lg" className="h-12 rounded-full px-6">
                 <a href={aboutCvAction.href} target="_blank" rel="noreferrer">
                   <EyeIcon className="size-[13px] [height:9px]" />
-                  {aboutCvAction.label}
+                  <LocalizedText
+                    text={{
+                      en: dictionary.en.about.viewCv,
+                      id: dictionary.id.about.viewCv,
+                    }}
+                  />
                 </a>
               </Button>
               <Button
@@ -130,7 +195,12 @@ export default function AboutPage() {
                 className="h-12 rounded-full border-border/80 bg-background/80 px-6"
               >
                 <Link href="/contact">
-                  Contact
+                  <LocalizedText
+                    text={{
+                      en: dictionary.en.common.contact,
+                      id: dictionary.id.common.contact,
+                    }}
+                  />
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -156,90 +226,172 @@ export default function AboutPage() {
       <section className="px-6 py-20 sm:py-24">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
           <div className="space-y-8">
-            <AboutSectionHeading eyebrow="Career progression" title="Experience" />
+            <AboutSectionHeading
+              eyebrow={
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.careerEyebrow,
+                    id: dictionary.id.about.careerEyebrow,
+                  }}
+                />
+              }
+              title={
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.experienceTitle,
+                    id: dictionary.id.about.experienceTitle,
+                  }}
+                />
+              }
+            />
 
             <div className="relative space-y-6 pl-8 before:absolute before:left-3 before:top-0 before:h-full before:w-px before:bg-border">
-              {experienceEntries.map((entry) => (
-                <div key={entry.id} className="relative">
-                  <span className="absolute -left-[1.95rem] top-2 h-6 w-6 rounded-full border border-primary/25 bg-background shadow-sm" />
-                  <Card className="border-border/70 bg-card/92">
-                    <CardContent className="space-y-5 p-6">
-                      <div className="flex items-start gap-4">
-                        <IdentityMarker
-                          src={entry.companyLogo.src}
-                          alt={entry.companyLogo.alt}
-                          className="h-12 w-12"
-                        />
-                        <div className="min-w-0">
-                          <CardTitle className="text-xl leading-tight text-foreground">
-                            {entry.role}
-                          </CardTitle>
-                          <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                            {entry.companyLine}
-                          </p>
-                        </div>
-                      </div>
+              {experienceEntries.map((entry) => {
+                const translatedEntry = idAboutContent.experience[entry.id];
+                const translatedFocusItems =
+                  translatedEntry?.focusItems ?? entry.focusItems;
 
-                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                        <span>{formatTimelinePeriod(entry.range)}</span>
-                        <span className="rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs text-primary">
-                          {entry.location}
-                        </span>
-                      </div>
-
-                      <p className="text-sm leading-7 text-foreground/84">
-                        {entry.summary}
-                      </p>
-
-                      <div className="grid gap-2">
-                        {entry.focusItems.slice(0, 4).map((item) => (
-                          <div
-                            key={item}
-                            className="flex gap-3 rounded-lg border border-border/70 bg-secondary/38 px-3 py-3 text-sm leading-6 text-muted-foreground"
-                          >
-                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                            <span>{item}</span>
+                return (
+                  <div key={entry.id} className="relative">
+                    <TimelineMarker active={Boolean(entry.range.ongoing)} />
+                    <Card className="border-border/70 bg-card/92">
+                      <CardContent className="space-y-5 p-6">
+                        <div className="flex items-start gap-4">
+                          <IdentityMarker
+                            src={entry.companyLogo.src}
+                            alt={entry.companyLogo.alt}
+                            className="h-12 w-12"
+                          />
+                          <div className="min-w-0">
+                            <CardTitle className="text-xl leading-tight text-foreground">
+                              <LocalizedText
+                                text={localizedCopy(entry.role, translatedEntry?.role)}
+                              />
+                            </CardTitle>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                              <LocalizedText
+                                text={localizedCopy(
+                                  entry.companyLine,
+                                  translatedEntry?.companyLine,
+                                )}
+                              />
+                            </p>
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                          <span>
+                            <LocalizedText
+                              text={{
+                                en: formatTimelinePeriod(entry.range, "en"),
+                                id: formatTimelinePeriod(entry.range, "id"),
+                              }}
+                            />
+                          </span>
+                          <span className="rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs text-primary">
+                            <LocalizedText
+                              text={localizedCopy(
+                                entry.location,
+                                translatedEntry?.location,
+                              )}
+                            />
+                          </span>
+                        </div>
+
+                        <p className="text-sm leading-7 text-foreground/84">
+                          <LocalizedText
+                            text={localizedCopy(entry.summary, translatedEntry?.summary)}
+                          />
+                        </p>
+
+                        <div className="grid gap-2">
+                          {entry.focusItems.slice(0, 4).map((item, index) => (
+                            <div
+                              key={item}
+                              className="flex gap-3 rounded-lg border border-border/70 bg-secondary/38 px-3 py-3 text-sm leading-6 text-muted-foreground"
+                            >
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                              <span>
+                                <LocalizedText
+                                  text={localizedCopy(
+                                    item,
+                                    translatedFocusItems[index],
+                                  )}
+                                />
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <div className="space-y-8">
-            <AboutSectionHeading eyebrow="Academic background" title="Education" />
+            <AboutSectionHeading
+              eyebrow={
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.academicEyebrow,
+                    id: dictionary.id.about.academicEyebrow,
+                  }}
+                />
+              }
+              title={
+                <LocalizedText
+                  text={{
+                    en: dictionary.en.about.educationTitle,
+                    id: dictionary.id.about.educationTitle,
+                  }}
+                />
+              }
+            />
 
-            <div className="space-y-5">
-              {educationItems.map((item) => (
-                <Card key={item.id} className="border-border/70 bg-card/92">
-                  <CardContent className="space-y-5 p-6">
-                    <div className="flex items-start gap-4">
-                      <IdentityMarker
-                        src={item.institutionLogo.src}
-                        alt={item.institutionLogo.alt}
-                        className="h-12 w-12"
-                      />
-                      <div className="min-w-0">
-                        <CardTitle className="text-xl leading-tight text-foreground">
-                          {item.institution}
-                        </CardTitle>
-                        <p className="mt-2 text-sm leading-6 text-foreground/84">
-                          {item.degree}
+            <div className="relative space-y-5 pl-8 before:absolute before:left-3 before:top-0 before:h-full before:w-px before:bg-border">
+              {educationItems.map((item) => {
+                const translatedEducation = idAboutContent.education[item.id];
+
+                return (
+                  <div key={item.id} className="relative">
+                    <TimelineMarker active={Boolean(item.range.ongoing)} />
+                    <Card className="border-border/70 bg-card/92">
+                      <CardContent className="space-y-5 p-6">
+                        <div className="flex items-start gap-4">
+                          <IdentityMarker
+                            src={item.institutionLogo.src}
+                            alt={item.institutionLogo.alt}
+                            className="h-12 w-12"
+                          />
+                          <div className="min-w-0">
+                            <CardTitle className="text-xl leading-tight text-foreground">
+                              {item.institution}
+                            </CardTitle>
+                            <p className="mt-2 text-sm leading-6 text-foreground/84">
+                              <LocalizedText
+                                text={localizedCopy(
+                                  item.degree,
+                                  translatedEducation?.degree,
+                                )}
+                              />
+                            </p>
+                          </div>
+                        </div>
+                        <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
+                          <EducationRange item={item} />
                         </p>
-                      </div>
-                    </div>
-                    <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
-                      <EducationRange item={item} />
-                    </p>
-                    <p className="rounded-lg border border-border/70 bg-secondary/38 p-4 text-sm leading-7 text-muted-foreground">
-                      {item.note}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                        <p className="rounded-lg border border-border/70 bg-secondary/38 p-4 text-sm leading-7 text-muted-foreground">
+                          <LocalizedText
+                            text={localizedCopy(item.note, translatedEducation?.note)}
+                          />
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -248,35 +400,65 @@ export default function AboutPage() {
       <section className="px-6 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl space-y-10">
           <AboutSectionHeading
-            eyebrow="Capability layer"
-            title="Hard Skills"
-            description="A structured capability layer for system integrity, automated validation, and operational quality control."
+            eyebrow={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.skillsEyebrow,
+                  id: dictionary.id.about.skillsEyebrow,
+                }}
+              />
+            }
+            title={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.skillsTitle,
+                  id: dictionary.id.about.skillsTitle,
+                }}
+              />
+            }
+            description={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.skillsDescription,
+                  id: dictionary.id.about.skillsDescription,
+                }}
+              />
+            }
           />
 
           <div className="grid auto-rows-fr gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {aboutHardSkillGroups.map((group) => (
-              <Card key={group.id} className="h-full border-border/70 bg-card/92">
-                <CardContent className="flex h-full flex-col gap-5 p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <CardTitle className="text-xl leading-tight text-foreground">
-                      {group.title}
-                    </CardTitle>
-                    <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
-                  </div>
+            {aboutHardSkillGroups.map((group) => {
+              const translatedGroup = idAboutContent.hardSkillGroups[group.id];
+              const translatedItems = translatedGroup?.items ?? group.items;
 
-                  <div className="flex flex-wrap gap-2">
-                    {group.items.map((item) => (
-                      <span
-                        key={item}
-                        className="skill-pill rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[13px] leading-5 text-foreground/86 hover:border-primary/20 hover:bg-primary/5"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              return (
+                <Card key={group.id} className="h-full border-border/70 bg-card/92">
+                  <CardContent className="flex h-full flex-col gap-5 p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <CardTitle className="text-xl leading-tight text-foreground">
+                        <LocalizedText
+                          text={localizedCopy(group.title, translatedGroup?.title)}
+                        />
+                      </CardTitle>
+                      <ShieldCheck className="h-5 w-5 shrink-0 text-primary" />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {group.items.map((item, index) => (
+                        <span
+                          key={item}
+                          className="skill-pill rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[13px] leading-5 text-foreground/86 hover:border-primary/20 hover:bg-primary/5"
+                        >
+                          <LocalizedText
+                            text={localizedCopy(item, translatedItems[index])}
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -284,18 +466,46 @@ export default function AboutPage() {
       <section className="px-6 py-20 sm:py-24">
         <div className="mx-auto max-w-7xl space-y-10">
           <AboutSectionHeading
-            eyebrow="Personal foundation"
-            title="What stays constant"
-            description="The values behind how I make quality decisions and work with real-world systems."
+            eyebrow={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.foundationEyebrow,
+                  id: dictionary.id.about.foundationEyebrow,
+                }}
+              />
+            }
+            title={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.foundationTitle,
+                  id: dictionary.id.about.foundationTitle,
+                }}
+              />
+            }
+            description={
+              <LocalizedText
+                text={{
+                  en: dictionary.en.about.foundationDescription,
+                  id: dictionary.id.about.foundationDescription,
+                }}
+              />
+            }
             centered
           />
 
           <div className="grid auto-rows-fr gap-5 md:grid-cols-2">
-            {aboutPersonalFoundation.map((item) => (
+            {aboutPersonalFoundation.map((item, index) => (
               <Card key={item} className="h-full border-border/70 bg-card/92">
                 <CardContent className="flex h-full items-center gap-4 p-8">
                   <Sparkles className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="text-lg leading-8 text-foreground/86">{item}</p>
+                  <p className="text-lg leading-8 text-foreground/86">
+                    <LocalizedText
+                      text={localizedCopy(
+                        item,
+                        idAboutContent.personalFoundation[index],
+                      )}
+                    />
+                  </p>
                 </CardContent>
               </Card>
             ))}
@@ -307,7 +517,12 @@ export default function AboutPage() {
         <div className="mx-auto max-w-4xl text-center">
           <Quote className="mx-auto h-8 w-8 text-primary" />
           <p className="mt-8 text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
-            {aboutFinalStatement[0]} {aboutFinalStatement[1]}
+            <LocalizedText
+              text={{
+                en: `${aboutFinalStatement[0]} ${aboutFinalStatement[1]}`,
+                id: dictionary.id.about.final,
+              }}
+            />
           </p>
           <div className="mt-8 flex justify-center">
           </div>

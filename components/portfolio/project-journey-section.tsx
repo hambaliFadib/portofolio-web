@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ExternalLink, GitBranch, ShieldCheck } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText } from "@/components/marked-text";
+import { localizedContent } from "@/data/localized-content";
 import type { PortfolioProject } from "@/data/projects";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +15,7 @@ interface ProjectJourneySectionProps {
 }
 
 interface JourneyProject extends PortfolioProject {
-  lane: "Enterprise" | "Built System";
+  lane: "enterprise" | "builtSystem";
 }
 
 interface ProjectDetailPanel {
@@ -38,19 +41,22 @@ function isProjectDetailPanel(
   return Boolean(panel);
 }
 
-function getProjectDetailPanels(project: PortfolioProject): ProjectDetailPanel[] {
+function getProjectDetailPanels(
+  project: PortfolioProject,
+  panelTitles: (typeof localizedContent)["en"]["projectJourney"]["panelTitles"],
+): ProjectDetailPanel[] {
   const panels: Array<ProjectDetailPanel | null> = [
     project.context
       ? {
           id: "context",
-          title: "Context",
+          title: panelTitles.context,
           body: project.context,
         }
       : null,
     project.problem
       ? {
           id: "problem",
-          title: "Decision problem",
+          title: panelTitles.problem,
           body: project.problem,
           tone: "primary",
         }
@@ -58,35 +64,35 @@ function getProjectDetailPanels(project: PortfolioProject): ProjectDetailPanel[]
     project.whatIOwned?.length
       ? {
           id: "ownership",
-          title: "What I owned",
+          title: panelTitles.ownership,
           items: project.whatIOwned,
         }
       : null,
     project.risksHandled?.length
       ? {
           id: "risk",
-          title: "Risks handled",
+          title: panelTitles.risk,
           items: project.risksHandled,
         }
       : null,
     project.decisionProblem?.length
       ? {
           id: "decision",
-          title: "Decision problem",
+          title: panelTitles.decision,
           items: project.decisionProblem,
         }
       : null,
     project.whatThisSystemChanged?.length
       ? {
           id: "system-change",
-          title: "System changed",
+          title: panelTitles.systemChange,
           items: project.whatThisSystemChanged,
         }
       : null,
     project.decisionImpact?.length
       ? {
           id: "impact",
-          title: "Decision impact",
+          title: panelTitles.impact,
           items: project.decisionImpact,
           tone: "primary",
         }
@@ -94,7 +100,7 @@ function getProjectDetailPanels(project: PortfolioProject): ProjectDetailPanel[]
     project.businessImpact?.length
       ? {
           id: "business",
-          title: "Business impact",
+          title: panelTitles.business,
           items: project.businessImpact,
         }
       : null,
@@ -107,12 +113,22 @@ export function ProjectJourneySection({
   enterpriseItems,
   builtItems,
 }: ProjectJourneySectionProps) {
+  const { locale } = useLanguage();
+  const content = localizedContent[locale];
+  const projectJourney = content.projectJourney;
   const journeyItems: JourneyProject[] = [
-    ...enterpriseItems.map((item) => ({ ...item, lane: "Enterprise" as const })),
-    ...builtItems.map((item) => ({ ...item, lane: "Built System" as const })),
+    ...enterpriseItems.map((item) => ({ ...item, lane: "enterprise" as const })),
+    ...builtItems.map((item) => ({ ...item, lane: "builtSystem" as const })),
   ];
+  const firstJourneyItem = journeyItems[0]
+    ? {
+        ...journeyItems[0],
+        ...(content.projects[journeyItems[0].id] ?? {}),
+      }
+    : null;
   const firstProjectDetailId = journeyItems[0]
-    ? getProjectDetailPanels(journeyItems[0])[0]?.id ?? ""
+    ? getProjectDetailPanels(firstJourneyItem as PortfolioProject, projectJourney.panelTitles)[0]
+        ?.id ?? ""
     : "";
   const [openProjectId, setOpenProjectId] = useState(journeyItems[0]?.id ?? "");
   const [activeDetailId, setActiveDetailId] = useState(firstProjectDetailId);
@@ -122,14 +138,13 @@ export function ProjectJourneySection({
       <div className="mx-auto max-w-7xl space-y-10">
         <div className="max-w-3xl space-y-4">
           <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
-            Project cartography
+            <MarkedText text={projectJourney.eyebrow} />
           </p>
           <h2 className="text-balance text-[2rem] font-semibold text-foreground sm:text-[2.35rem] lg:text-[2.65rem]">
-            A journey through systems, risks, and release decisions.
+            <MarkedText text={projectJourney.title} />
           </h2>
           <p className="text-pretty text-[15px] leading-7 text-muted-foreground md:text-lg md:leading-8">
-            Each node can expand into the decision structure behind the work:
-            context, ambiguity, risk handled, ownership, and impact.
+            <MarkedText text={projectJourney.description} />
           </p>
         </div>
 
@@ -155,8 +170,19 @@ export function ProjectJourneySection({
 
           <div className="relative space-y-4">
             {journeyItems.map((project, index) => {
+              const localizedProject = content.projects[project.id];
+              const projectView = {
+                ...project,
+                ...(localizedProject ?? {}),
+                evidence: project.evidence,
+                lane: project.lane,
+                tags: localizedProject?.tags ?? project.tags,
+              };
               const isOpen = openProjectId === project.id;
-              const detailPanels = getProjectDetailPanels(project);
+              const detailPanels = getProjectDetailPanels(
+                projectView,
+                projectJourney.panelTitles,
+              );
               const activeDetail =
                 detailPanels.find((panel) => panel.id === activeDetailId) ??
                 detailPanels[0];
@@ -197,16 +223,16 @@ export function ProjectJourneySection({
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                        {project.lane}
+                        <MarkedText text={projectJourney.lanes[project.lane]} />
                       </span>
                     </div>
 
                     <div className="min-w-0">
                       <h3 className="text-xl font-semibold leading-tight text-foreground">
-                        {project.title}
+                        <MarkedText text={projectView.title} />
                       </h3>
                       <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                        {getProjectSummary(project)}
+                        <MarkedText text={getProjectSummary(projectView)} />
                       </p>
                     </div>
 
@@ -229,12 +255,12 @@ export function ProjectJourneySection({
                   <div className="overflow-hidden">
                     <div className="border-t border-border/70 px-4 pb-5 pt-5">
                       <div className="flex flex-wrap gap-2">
-                        {project.tags.map((tag) => (
+                        {projectView.tags.map((tag) => (
                           <span
                             key={tag}
                             className="rounded-full border border-border/70 bg-card/80 px-3 py-1 font-mono text-[10px] uppercase text-muted-foreground"
                           >
-                            {tag}
+                            <MarkedText text={tag} />
                           </span>
                         ))}
                       </div>
@@ -243,7 +269,7 @@ export function ProjectJourneySection({
                         <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
                           <div className="space-y-2">
                             <p className="font-mono text-[10px] uppercase text-primary/80">
-                              Detail map
+                              <MarkedText text={projectJourney.detailMapLabel} />
                             </p>
                             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                               {detailPanels.map((panel) => {
@@ -263,7 +289,7 @@ export function ProjectJourneySection({
                                     onClick={() => setActiveDetailId(panel.id)}
                                   >
                                     <span className="block text-sm font-semibold leading-5 text-foreground">
-                                      {panel.title}
+                                      <MarkedText text={panel.title} />
                                     </span>
                                   </button>
                                 );
@@ -281,11 +307,11 @@ export function ProjectJourneySection({
                             )}
                           >
                             <p className="font-mono text-[10px] font-medium uppercase text-primary/80">
-                              {activeDetail.title}
+                              <MarkedText text={activeDetail.title} />
                             </p>
                             {activeDetail.body ? (
                               <p className="mt-3 text-sm leading-7 text-foreground/86">
-                                {activeDetail.body}
+                                <MarkedText text={activeDetail.body} />
                               </p>
                             ) : null}
                             {activeDetail.items ? (
@@ -293,7 +319,9 @@ export function ProjectJourneySection({
                                 {activeDetail.items.map((item) => (
                                   <li key={item} className="flex gap-2">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/75" />
-                                    <span>{item}</span>
+                                    <span>
+                                      <MarkedText text={item} />
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
@@ -312,7 +340,9 @@ export function ProjectJourneySection({
                               rel={link.external ? "noreferrer" : undefined}
                               className="inline-flex h-10 items-center gap-2 rounded-full border border-border/80 bg-card/86 px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/25 hover:text-primary"
                             >
-                              {link.label}
+                              <MarkedText
+                                text={projectJourney.evidenceLabels[link.label] ?? link.label}
+                              />
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Link>
                           ))}
@@ -330,13 +360,13 @@ export function ProjectJourneySection({
             <div className="rounded-lg border border-primary/18 bg-primary/5 px-4 py-3">
               <GitBranch className="h-4 w-4 text-primary" />
               <p className="mt-2 text-sm font-semibold text-foreground">
-                Journey opens by decision node
+                <MarkedText text={projectJourney.footerPrimary} />
               </p>
             </div>
             <div className="rounded-lg border border-border/70 bg-background/78 px-4 py-3">
               <ShieldCheck className="h-4 w-4 text-primary" />
               <p className="mt-2 text-sm font-semibold text-foreground">
-                Public-safe detail, release-focused structure
+                <MarkedText text={projectJourney.footerSecondary} />
               </p>
             </div>
           </div>

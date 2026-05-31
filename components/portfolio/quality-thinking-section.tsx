@@ -2,15 +2,9 @@
 
 import { useState } from "react";
 import { BrainCircuit, ChevronDown, GitBranch, Network } from "lucide-react";
-import {
-  antiPatternsSection,
-  decisionPatternsSection,
-  decisionPrinciplesSection,
-  problemBreakdownSection,
-  riskThinkingModelSection,
-  thinkingFinalThought,
-  thinkingSnapshotSection,
-} from "@/data/thinking";
+import { useLanguage } from "@/components/language-provider";
+import { MarkedText } from "@/components/marked-text";
+import { localizedContent } from "@/data/localized-content";
 import { cn } from "@/lib/utils";
 
 interface ThinkingMapItem {
@@ -19,83 +13,10 @@ interface ThinkingMapItem {
   points?: string[];
 }
 
-interface ThinkingMapBranch {
-  id: string;
-  phase: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  items: ThinkingMapItem[];
-}
-
-const thinkingBranches: ThinkingMapBranch[] = [
-  {
-    id: "principles",
-    phase: "01",
-    eyebrow: decisionPrinciplesSection.eyebrow,
-    title: decisionPrinciplesSection.title,
-    description:
-      "The foundational rules used before any release decision is trusted.",
-    items: decisionPrinciplesSection.items,
-  },
-  {
-    id: "breakdown",
-    phase: "02",
-    eyebrow: problemBreakdownSection.eyebrow,
-    title: problemBreakdownSection.title,
-    description:
-      "A gradual path for turning an ambiguous problem into visible decision boundaries.",
-    items: problemBreakdownSection.items,
-  },
-  {
-    id: "risk-model",
-    phase: "03",
-    eyebrow: riskThinkingModelSection.eyebrow,
-    title: riskThinkingModelSection.title,
-    description: riskThinkingModelSection.description ?? "",
-    items: riskThinkingModelSection.items,
-  },
-  {
-    id: "decision-patterns",
-    phase: "04",
-    eyebrow: decisionPatternsSection.eyebrow,
-    title: decisionPatternsSection.title,
-    description: decisionPatternsSection.description ?? "",
-    items: decisionPatternsSection.items,
-  },
-  {
-    id: "anti-patterns",
-    phase: "05",
-    eyebrow: antiPatternsSection.eyebrow,
-    title: antiPatternsSection.title,
-    description: antiPatternsSection.description ?? "",
-    items: antiPatternsSection.items,
-  },
-  {
-    id: "snapshot",
-    phase: "06",
-    eyebrow: thinkingSnapshotSection.eyebrow,
-    title: thinkingSnapshotSection.title,
-    description: thinkingSnapshotSection.description ?? "",
-    items: thinkingSnapshotSection.items,
-  },
-  {
-    id: "closing",
-    phase: "07",
-    eyebrow: "Closing statement",
-    title: thinkingFinalThought.title,
-    description:
-      "The final decision lens that ties the branches back into release judgment.",
-    items: [
-      {
-        title: "Release judgment",
-        description: thinkingFinalThought.description,
-      },
-    ],
-  },
-];
-
 export function QualityThinkingSection() {
+  const { locale } = useLanguage();
+  const content = localizedContent[locale].thinking;
+  const thinkingBranches = content.branches;
   const [activeBranchId, setActiveBranchId] = useState(thinkingBranches[0].id);
   const [expandedNode, setExpandedNode] = useState(
     `${thinkingBranches[0].id}-0`,
@@ -114,14 +35,13 @@ export function QualityThinkingSection() {
       <div className="mx-auto max-w-7xl space-y-10">
         <div className="max-w-3xl space-y-4">
           <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
-            Decision flow map
+            <MarkedText text={content.mapEyebrow} />
           </p>
           <h2 className="text-balance text-[2rem] font-semibold text-foreground sm:text-[2.35rem] lg:text-[2.65rem]">
-            Explore the branches behind release judgment.
+            <MarkedText text={content.mapTitle} />
           </h2>
           <p className="text-pretty text-[15px] leading-7 text-muted-foreground md:text-lg md:leading-8">
-            A Notebook-style map for moving from principles to problem
-            breakdown, risk, release patterns, and final decision clarity.
+            <MarkedText text={content.mapDescription} />
           </p>
         </div>
 
@@ -161,10 +81,10 @@ export function QualityThinkingSection() {
                 </span>
                 <div>
                   <p className="font-mono text-[10px] uppercase text-primary/80">
-                    Root node
+                    <MarkedText text={content.rootLabel} />
                   </p>
                   <p className="text-sm font-semibold text-foreground">
-                    Release decision clarity
+                    <MarkedText text={content.rootTitle} />
                   </p>
                 </div>
               </div>
@@ -198,10 +118,10 @@ export function QualityThinkingSection() {
                       </span>
                       <span className="min-w-0">
                         <span className="block font-mono text-[10px] uppercase text-muted-foreground">
-                          {branch.eyebrow}
+                          <MarkedText text={branch.eyebrow} />
                         </span>
                         <span className="mt-0.5 block text-sm font-semibold leading-5 text-foreground">
-                          {branch.title}
+                          <MarkedText text={branch.title} />
                         </span>
                       </span>
                     </button>
@@ -214,18 +134,22 @@ export function QualityThinkingSection() {
               <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="max-w-3xl">
                   <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
-                    Branch {activeBranch.phase} / {activeBranch.eyebrow}
+                    <MarkedText
+                      text={`${content.branchLabel} ${activeBranch.phase} - ${activeBranch.eyebrow}`}
+                    />
                   </p>
                   <h3 className="mt-2 text-3xl font-semibold leading-tight text-foreground">
-                    {activeBranch.title}
+                    <MarkedText text={activeBranch.title} />
                   </h3>
                   <p className="mt-3 text-sm leading-7 text-muted-foreground md:text-base">
-                    {activeBranch.description}
+                    <MarkedText text={activeBranch.description} />
                   </p>
                 </div>
                 <span className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-primary/18 bg-primary/5 px-4 font-mono text-[11px] uppercase text-primary">
                   <GitBranch className="h-3.5 w-3.5" />
-                  {activeBranch.items.length} nodes
+                  <MarkedText
+                    text={`${activeBranch.items.length} ${content.nodesLabel}`}
+                  />
                 </span>
               </div>
 
@@ -259,10 +183,12 @@ export function QualityThinkingSection() {
                       >
                         <span className="min-w-0">
                           <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                            Node {String(index + 1).padStart(2, "0")}
+                            <MarkedText
+                              text={`${content.nodeLabel} ${String(index + 1).padStart(2, "0")}`}
+                            />
                           </span>
                           <span className="mt-1 block text-base font-semibold leading-6 text-foreground">
-                            {item.title}
+                            <MarkedText text={item.title} />
                           </span>
                         </span>
                         <ChevronDown
@@ -285,7 +211,7 @@ export function QualityThinkingSection() {
                           <div className="rounded-b-lg border-x border-b border-border/70 bg-card/76 px-4 py-4">
                             {item.description ? (
                               <p className="text-sm leading-7 text-muted-foreground">
-                                {item.description}
+                                <MarkedText text={item.description} />
                               </p>
                             ) : null}
 
@@ -294,7 +220,9 @@ export function QualityThinkingSection() {
                                 {item.points.map((point) => (
                                   <li key={point} className="flex gap-2">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/75" />
-                                    <span>{point}</span>
+                                    <span>
+                                      <MarkedText text={point} />
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
@@ -310,13 +238,15 @@ export function QualityThinkingSection() {
           </div>
 
           <div className="relative mt-6 grid gap-3 border-t border-border/70 pt-5 sm:grid-cols-3">
-            {["Clarify", "Branch", "Decide"].map((label) => (
+            {content.footerLabels.map((label) => (
               <div
                 key={label}
                 className="flex items-center gap-3 rounded-lg border border-border/70 bg-background/72 px-4 py-3"
               >
                 <Network className="h-4 w-4 text-primary" />
-                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  <MarkedText text={label} />
+                </p>
               </div>
             ))}
           </div>

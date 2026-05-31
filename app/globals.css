@@ -1,4 +1,4 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
@@ -151,9 +151,50 @@
     background-image: var(--page-gradient);
     min-height: 100vh;
     transition:
-      background-color 240ms ease,
-      color 240ms ease,
-      background-image 240ms ease;
+      background-color 320ms ease,
+      color 320ms ease;
+  }
+
+  /*
+   * Theme colour transition — applied only to colour-bearing properties.
+   * opacity, transform, box-shadow are intentionally excluded to prevent
+   * interference with unrelated animations (scroll-reveal, route slide, etc.).
+   * Elements that are already animating (will-change: transform/opacity) or
+   * explicit animation/keyframe targets are excluded via :not().
+   */
+  html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal):not(.thinking-bulb):not(.thinking-orbit):not(.thinking-bar),
+  html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::before,
+  html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::after {
+    transition-duration: 320ms !important;
+    transition-property:
+      background-color,
+      border-color,
+      color,
+      fill,
+      stroke !important;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  /* Subtle colour-wash overlay — z-index kept below mobile menu overlay */
+  html.theme-transitioning body::after {
+    animation: theme-sky-shift 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: fixed;
+    z-index: 1000;
+  }
+
+  html.theme-transitioning[data-theme-target="dark"] body::after {
+    background:
+      radial-gradient(circle at 84% 16%, rgba(176, 211, 230, 0.12), transparent 24%),
+      linear-gradient(120deg, rgba(10, 17, 24, 0.02), rgba(10, 17, 24, 0.18));
+  }
+
+  html.theme-transitioning[data-theme-target="light"] body::after {
+    background:
+      radial-gradient(circle at 84% 16%, rgba(255, 247, 214, 0.28), transparent 25%),
+      linear-gradient(120deg, rgba(248, 251, 255, 0.06), rgba(248, 251, 255, 0.22));
   }
 
   ::selection {
@@ -206,6 +247,23 @@
     animation: thinking-bar-pulse 1.25s ease-in-out infinite;
   }
 
+  .route-transition-page {
+    animation: route-slide-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .scroll-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
   .skill-pill {
     transition:
       transform 220ms ease,
@@ -246,6 +304,106 @@
       opacity: 1;
     }
   }
+
+  @keyframes route-slide-in {
+    from {
+      opacity: 0;
+      transform: translateX(18px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes theme-sky-shift {
+    0%   { opacity: 0; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ─── AI Chat Widget Animations ──────────────────────────────────────── */
+
+  /*
+   * compact card enter: card "unfolds" upward from the button position.
+   * clip-path starts with only the bottom sliver visible (near the button),
+   * then progressively reveals the rest of the card upward — like pulling cloth.
+   */
+  .chat-compact-enter {
+    animation: chat-compact-unfold 460ms cubic-bezier(0.34, 1.12, 0.64, 1) both;
+  }
+
+  /*
+   * compact card exit: card collapses back down before workspace expands.
+   */
+  .chat-compact-exit {
+    animation: chat-compact-fold 240ms cubic-bezier(0.55, 0, 1, 0.45) both;
+    pointer-events: none;
+  }
+
+  /*
+   * workspace enter: full-screen workspace grows from the compact card corner
+   * (bottom-right), giving the impression of the card expanding to fill the screen.
+   */
+  .chat-workspace-enter {
+    animation: chat-workspace-spread 440ms cubic-bezier(0.34, 1.08, 0.64, 1) both;
+  }
+
+  @keyframes chat-compact-unfold {
+    0%   {
+      opacity: 0;
+      clip-path: inset(90% 0 0 0 round 0.6rem);
+      transform: translateY(10px);
+    }
+    45%  { opacity: 1; }
+    100% {
+      opacity: 1;
+      clip-path: inset(0% 0 0 0 round 0.6rem);
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes chat-compact-fold {
+    0%   {
+      opacity: 1;
+      clip-path: inset(0 0 0%  0 round 0.6rem);
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      clip-path: inset(0 0 90% 0 round 0.6rem);
+      transform: scale(0.97);
+    }
+  }
+
+  @keyframes chat-workspace-spread {
+    /*
+     * Uses clip-path instead of transform: scale() so that the element
+     * retains its full DOM dimensions at all times. This ensures the
+     * AiParticleField canvas initialises at the correct full-screen size
+     * (getBoundingClientRect returns the real size, not a scaled one).
+     *
+     * The clip starts at approximately the compact card's position
+     * (bottom-right, 26rem wide × 42rem tall at 1.5rem offset)
+     * and expands to fill the full viewport.
+     */
+    0% {
+      opacity: 0;
+      clip-path: inset(
+        max(0px, calc(100vh - 42rem - 1.5rem))
+        1.5rem
+        1.5rem
+        max(0px, calc(100vw - 26rem - 1.5rem))
+        round 0.75rem
+      );
+    }
+    35% { opacity: 1; }
+    100% {
+      opacity: 1;
+      clip-path: inset(0px 0px 0px 0px round 0px);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -259,8 +417,16 @@
 
   .thinking-bulb,
   .thinking-orbit,
-  .thinking-bar {
+  .thinking-bar,
+  .route-transition-page,
+  .scroll-reveal,
+  .chat-compact-enter,
+  .chat-compact-exit,
+  .chat-workspace-enter {
     animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }
 
