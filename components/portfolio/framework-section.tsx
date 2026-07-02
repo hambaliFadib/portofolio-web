@@ -44,7 +44,7 @@ export function FrameworkSection() {
               {content.corePositioning.map((item, index) => (
                 <div
                   key={item}
-                  className="flex gap-3 rounded-lg border border-border/70 bg-background/76 px-3 py-3 text-sm leading-6 text-foreground/84"
+                  className="flex gap-3 rounded-lg border border-border/70 bg-background/76 px-3 py-3 text-sm leading-6 text-muted-foreground"
                 >
                   <span className="font-mono text-[11px] text-primary">
                     {String(index + 1).padStart(2, "0")}
@@ -101,7 +101,7 @@ export function FrameworkSection() {
                 <h3 className="mt-2 text-2xl font-semibold text-foreground">
                   <MarkedText text={activeBlock.title} />
                 </h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                <p className="mt-3 max-w-prose text-sm leading-7 text-muted-foreground">
                   <MarkedText text={activeBlock.summary} />
                 </p>
               </div>
@@ -113,7 +113,7 @@ export function FrameworkSection() {
                       <p className="font-mono text-[10px] uppercase text-primary/75">
                         <MarkedText text={`${content.checkpointLabel} ${index + 1}`} />
                       </p>
-                      <p className="mt-2 text-sm leading-6 text-foreground/86">
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
                         <MarkedText text={step} />
                       </p>
                     </div>
@@ -163,7 +163,7 @@ export function FrameworkSection() {
                   {content.releaseDecisionRules.map((item) => (
                     <li
                       key={item}
-                      className="rounded-lg border border-destructive/18 bg-background/82 px-4 py-4 text-sm leading-6 text-foreground/90"
+                      className="rounded-lg border border-destructive/18 bg-background/82 px-4 py-4 text-sm leading-6 text-muted-foreground"
                     >
                       <MarkedText text={item} />
                     </li>
@@ -181,7 +181,7 @@ export function FrameworkSection() {
                 <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
                   <MarkedText text={content.whereUsedTitle} />
                 </p>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 max-w-prose text-sm leading-6 text-muted-foreground">
                   <MarkedText text={content.whereUsedDescription} />
                 </p>
               </div>
@@ -202,7 +202,7 @@ export function FrameworkSection() {
                     className={cn(
                       "rounded-lg border px-3 py-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-300 motion-safe:hover:-translate-y-px",
                       isActive
-                        ? "border-primary/28 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.5)]"
+                        ? "border-primary/28 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.28)]"
                         : "border-border/70 bg-background/72 hover:border-primary/20 hover:bg-background/92",
                     )}
                     onClick={() => setActiveUsage(index)}

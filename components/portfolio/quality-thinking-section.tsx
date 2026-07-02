@@ -45,7 +45,7 @@ export function QualityThinkingSection() {
           </p>
         </div>
 
-        <div className="grid-bg relative overflow-hidden rounded-lg border border-border/70 bg-card/90 p-4 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.42)] sm:p-6 lg:p-8">
+        <div className="grid-bg relative overflow-x-hidden rounded-lg border border-border/70 bg-card/96 p-4 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.28)] sm:p-6 lg:p-8">
           <svg
             className="pointer-events-none absolute inset-0 hidden h-full w-full text-primary/16 lg:block"
             aria-hidden="true"
@@ -101,7 +101,7 @@ export function QualityThinkingSection() {
                       className={cn(
                         "group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-300 motion-safe:hover:-translate-y-px",
                         isActive
-                          ? "border-primary/32 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.5)]"
+                          ? "border-primary/32 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.28)]"
                           : "border-border/70 bg-card/70 hover:border-primary/20 hover:bg-card/94",
                       )}
                       onClick={() => selectBranch(branch.id)}
@@ -130,7 +130,7 @@ export function QualityThinkingSection() {
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg border border-border/70 bg-background/88 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.38)] sm:p-5">
+            <div className="min-w-0 rounded-lg border border-border/70 bg-background/95 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.38)] sm:p-5">
               <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="max-w-3xl">
                   <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
@@ -141,7 +141,7 @@ export function QualityThinkingSection() {
                   <h3 className="mt-2 text-3xl font-semibold leading-tight text-foreground">
                     <MarkedText text={activeBranch.title} />
                   </h3>
-                  <p className="mt-3 text-sm leading-7 text-muted-foreground md:text-base">
+                  <p className="mt-3 max-w-prose text-sm leading-7 text-muted-foreground md:text-base">
                     <MarkedText text={activeBranch.description} />
                   </p>
                 </div>
@@ -175,7 +175,7 @@ export function QualityThinkingSection() {
                           "flex w-full items-start justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-[border-color,background-color,box-shadow] duration-300",
                           isExpanded
                             ? "border-primary/25 bg-primary/6"
-                            : "border-border/70 bg-card/72 hover:border-primary/18 hover:bg-card/95",
+                            : "border-border/70 bg-card/94 hover:border-primary/18 hover:bg-card/95",
                         )}
                         onClick={() =>
                           setExpandedNode(isExpanded ? "" : nodeId)
@@ -208,15 +208,15 @@ export function QualityThinkingSection() {
                         )}
                       >
                         <div className="overflow-hidden">
-                          <div className="rounded-b-lg border-x border-b border-border/70 bg-card/76 px-4 py-4">
+                          <div className="rounded-b-lg border-x border-b border-border/70 bg-card/94 px-4 py-4">
                             {item.description ? (
-                              <p className="text-sm leading-7 text-muted-foreground">
+                              <p className="max-w-prose text-sm leading-7 text-muted-foreground">
                                 <MarkedText text={item.description} />
                               </p>
                             ) : null}
 
                             {item.points ? (
-                              <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
+                              <ul className="max-w-prose space-y-2 text-sm leading-6 text-muted-foreground">
                                 {item.points.map((point) => (
                                   <li key={point} className="flex gap-2">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/75" />

@@ -26,7 +26,7 @@ export function LanguageToggle({ className }: LanguageToggleProps) {
       role="group"
       aria-label="Language selection"
       className={cn(
-        "inline-flex overflow-hidden rounded-full border border-primary",
+        "inline-flex overflow-hidden rounded-full border border-primary p-0.5",
         className,
       )}
     >

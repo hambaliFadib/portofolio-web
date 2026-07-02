@@ -36,7 +36,7 @@ export function Footer() {
         <p className="text-3xl font-semibold text-foreground sm:text-4xl">
           Hambali Fadib
         </p>
-        <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
+        <p className="mt-4 max-w-prose text-sm leading-6 text-muted-foreground">
           Software Quality Assurance Engineer focused on business-critical
           systems, structured quality decisions, and enterprise process
           integrity.

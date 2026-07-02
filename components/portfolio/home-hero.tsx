@@ -22,13 +22,13 @@ export function HomeHero() {
             <h1 className="text-5xl font-semibold leading-[1.02] text-foreground sm:text-6xl lg:text-7xl">
               Hambali Fadib
             </h1>
-            <p className="max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl sm:leading-9">
+            <p className="max-w-prose text-lg leading-8 text-muted-foreground sm:text-xl sm:leading-9">
               <MarkedText text={t.home.description} />
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button asChild size="lg" className="h-12 rounded-full px-6">
+            <Button asChild size="lg" className="h-12 rounded-full px-6 py-1">
               <Link href={heroContent.primaryCta.href}>
                 <MarkedText text={t.home.primaryCta} />
                 <ArrowRight className="h-4 w-4" />
@@ -38,7 +38,7 @@ export function HomeHero() {
               asChild
               variant="outline"
               size="lg"
-              className="h-12 rounded-full border-border/80 bg-background/80 px-6"
+              className="h-12 rounded-full border-border/80 bg-background/80 px-6 py-1"
             >
               <Link href="/quality-thinking">
                 <MarkedText text={t.home.secondaryCta} />
@@ -48,7 +48,7 @@ export function HomeHero() {
         </div>
 
         <div className="relative mx-auto w-full max-w-[37rem] lg:mx-0 lg:justify-self-end">
-          <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border/70 bg-secondary/40 shadow-[0_30px_80px_-50px_rgba(20,33,61,0.55)]">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border/70 bg-secondary/40 shadow-[0_30px_80px_-50px_rgba(20,33,61,0.30)]">
             <Image
               src="/profile.jpg"
               alt="Hambali Fadib"

@@ -460,7 +460,7 @@ export function RealDecisionCasesSection() {
                   aria-expanded={isMapOpen}
                   data-map-control="true"
                   className={cn(
-                    "absolute rounded-lg border border-primary/24 bg-background/96 p-5 text-left shadow-[0_18px_54px_-38px_rgba(20,33,61,0.5)] transition-[left,top,width,min-height,border-color,background-color,box-shadow] duration-500 hover:border-primary/36",
+                    "absolute rounded-lg border border-primary/24 bg-background/96 p-5 text-left shadow-[0_18px_54px_-38px_rgba(20,33,61,0.28)] transition-[left,top,width,min-height,border-color,background-color,box-shadow] duration-500 hover:border-primary/36",
                   )}
                   style={{
                     left: isMapOpen
@@ -541,7 +541,7 @@ export function RealDecisionCasesSection() {
                         className={cn(
                           "flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-300 motion-safe:hover:-translate-y-px",
                           isExpanded
-                            ? "border-primary/30 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.5)]"
+                            ? "border-primary/30 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.28)]"
                             : "border-border/70 bg-background/90 hover:border-primary/20 hover:bg-background/98",
                         )}
                         onClick={() => toggleStepNode(item.id, index)}
@@ -620,7 +620,7 @@ export function RealDecisionCasesSection() {
               <h3 className="mt-2 text-xl font-semibold text-foreground">
                 <MarkedText text={content.principle.title} />
               </h3>
-              <p className="mt-3 max-w-4xl text-sm leading-7 text-foreground/85">
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-muted-foreground">
                 <MarkedText text={content.principle.body} />
               </p>
             </div>
@@ -712,7 +712,7 @@ export function RealDecisionCasesSection() {
                                 <p className="mt-3 font-mono text-[10px] uppercase text-primary/80">
                                   <MarkedText text={field.label} />
                                 </p>
-                                <p className="mt-2 text-sm leading-6 text-foreground/86">
+                                <p className="mt-2 text-sm leading-6 text-muted-foreground">
                                   <MarkedText text={decisionCase[field.key]} />
                                 </p>
                               </div>

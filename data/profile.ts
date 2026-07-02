@@ -56,8 +56,8 @@ export const heroContent = {
     href: "/projects",
   },
   secondaryCta: {
-    label: "View Projects",
-    href: "/projects",
+    label: "Quality Thinking",
+    href: "/quality-thinking",
   },
 } as const;
 

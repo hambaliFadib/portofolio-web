@@ -44,10 +44,10 @@ export function QualityThinkingPageContent() {
               <p className="font-mono text-xs font-medium uppercase text-primary/80">
                 <MarkedText text={t.thinking.eyebrow} />
               </p>
-              <h1 className="text-5xl font-semibold leading-[1.05] text-foreground sm:text-6xl">
+              <h1 className="text-5xl font-semibold leading-[1.2] text-foreground sm:text-6xl">
                 <MarkedText text={t.thinking.title} />
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
+              <p className="max-w-prose text-lg leading-8 text-muted-foreground">
                 <MarkedText text={thinkingContent.pageSubtitle} />
               </p>
             </div>
@@ -56,7 +56,7 @@ export function QualityThinkingPageContent() {
               {thinkingContent.pageStatements.map((statement) => (
                 <div
                   key={statement}
-                  className="rounded-lg border border-border/70 bg-card/80 px-4 py-4 text-sm leading-6 text-muted-foreground"
+                  className="rounded-lg border border-border/70 bg-card/94 px-4 py-4 text-sm leading-6 text-muted-foreground"
                 >
                   <MarkedText text={statement} />
                 </div>
@@ -64,7 +64,7 @@ export function QualityThinkingPageContent() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg" className="h-12 rounded-full px-6">
+              <Button asChild size="lg" className="h-12 rounded-full px-6 py-1">
                 <Link href="/projects">
                   <MarkedText text={t.thinking.projectsCta} />
                   <ArrowRight className="h-4 w-4" />
@@ -74,7 +74,7 @@ export function QualityThinkingPageContent() {
                 asChild
                 variant="outline"
                 size="lg"
-                className="h-12 rounded-full border-border/80 bg-background/80 px-6"
+                className="h-12 rounded-full border-border/80 bg-background/80 px-6 py-1"
               >
                 <Link href="#quality-thinking">
                   <GitBranch className="h-4 w-4" />

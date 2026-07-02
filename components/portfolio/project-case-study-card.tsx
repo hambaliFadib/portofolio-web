@@ -81,7 +81,7 @@ export function ProjectCaseStudyCard({ project }: ProjectCaseStudyCardProps) {
   const isDecisionSystem = project.variant === "decision-system";
 
   return (
-    <Card className="group h-full overflow-hidden border-border/70 bg-card/94 py-0 shadow-[0_24px_70px_-52px_rgba(20,33,61,0.42)]">
+    <Card className="group h-full overflow-hidden border-border/70 bg-card/94 py-1.5 shadow-[0_24px_70px_-52px_rgba(20,33,61,0.42)]">
       <ProjectVisual project={project} />
 
       <CardHeader className="gap-4 px-6 pt-6">

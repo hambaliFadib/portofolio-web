@@ -14,8 +14,8 @@ function SystemVisualization() {
   const { t } = useLanguage();
 
   return (
-    <div className="grid-bg relative h-[31rem] overflow-hidden rounded-lg border border-border/70 bg-card/80 shadow-[0_28px_80px_-54px_rgba(20,33,61,0.48)]">
-      <div className="absolute inset-10 rounded-lg border border-border/70 bg-background/78 p-8 backdrop-blur">
+    <div className="grid-bg relative h-[31rem] overflow-x-hidden rounded-lg border border-border/70 bg-card/95 shadow-[0_28px_80px_-54px_rgba(20,33,61,0.28)]">
+      <div className="absolute inset-10 rounded-lg border border-border/70 bg-background/92 p-8 backdrop-blur">
         <div className="grid h-full grid-rows-[auto_1fr_auto] gap-6">
           <div className="flex items-center justify-between">
             <div>
@@ -30,7 +30,7 @@ function SystemVisualization() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-border/70 bg-card/88 p-4">
+            <div className="rounded-lg border border-border/70 bg-card/96 p-4">
               <Network className="h-5 w-5 text-primary" />
               <div className="mt-5 space-y-2">
                 <div className="h-2 rounded-full bg-primary/24" />
@@ -38,7 +38,7 @@ function SystemVisualization() {
                 <div className="h-2 w-2/3 rounded-full bg-foreground/10" />
               </div>
             </div>
-            <div className="rounded-lg border border-border/70 bg-card/88 p-4">
+            <div className="rounded-lg border border-border/70 bg-card/96 p-4">
               <div className="grid grid-cols-3 gap-2">
                 <span className="h-12 rounded-md bg-accent/70" />
                 <span className="h-12 rounded-md bg-primary/18" />
@@ -56,7 +56,7 @@ function SystemVisualization() {
               <p className="text-xs font-medium text-primary">
                 <MarkedText text={t.projects.visual.decisionSignal} />
               </p>
-              <p className="mt-1 text-sm text-foreground/85">
+              <p className="mt-1 text-sm text-muted-foreground">
                 <MarkedText text={t.projects.visual.riskBoundary} />
               </p>
             </div>
@@ -64,7 +64,7 @@ function SystemVisualization() {
               <p className="text-xs font-medium text-muted-foreground">
                 <MarkedText text={t.projects.visual.evidence} />
               </p>
-              <p className="mt-1 text-sm text-foreground/85">
+              <p className="mt-1 text-sm text-muted-foreground">
                 <MarkedText text={t.projects.visual.proof} />
               </p>
             </div>
@@ -90,12 +90,12 @@ export function ProjectsPageContent() {
               <h1 className="text-5xl font-semibold leading-[1.05] text-foreground sm:text-6xl">
                 <MarkedText text={t.projects.title} />
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-muted-foreground">
+              <p className="max-w-prose text-lg leading-8 text-muted-foreground">
                 <MarkedText text={t.projects.description} />
               </p>
             </div>
 
-            <Button asChild size="lg" className="h-12 rounded-full px-6">
+            <Button asChild size="lg" className="h-12 rounded-full px-6 py-1">
               <Link href="#enterprise-case-studies">
                 <MarkedText text={t.projects.cta} />
                 <ArrowRight className="h-4 w-4" />

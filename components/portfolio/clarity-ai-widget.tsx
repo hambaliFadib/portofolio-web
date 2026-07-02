@@ -497,7 +497,7 @@ export function ClarityAIWidget() {
         <button
           type="button"
           aria-label={assistantText.aria.open}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_45px_-18px_rgba(20,33,61,0.55)] transition-[transform,box-shadow,opacity] duration-300 hover:opacity-95 hover:shadow-[0_22px_55px_-18px_rgba(20,33,61,0.62)] motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-0"
+          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_18px_45px_-18px_rgba(20,33,61,0.30)] transition-[transform,box-shadow,opacity] duration-300 hover:opacity-95 hover:shadow-[0_22px_55px_-18px_rgba(20,33,61,0.35)] motion-safe:hover:-translate-y-1 motion-safe:active:translate-y-0"
           onClick={openCompact}
         >
           <MessageSquareText className="h-5 w-5" />
@@ -514,7 +514,7 @@ export function ClarityAIWidget() {
         >
           <div
             className={cn(
-              "ai-system-grid absolute bottom-6 right-6 flex h-[min(42rem,calc(100vh-3rem))] w-[min(26rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-border/80 bg-card/98 shadow-[0_28px_70px_-36px_rgba(20,33,61,0.55)]",
+              "ai-system-grid absolute bottom-6 right-6 flex h-[min(42rem,calc(100vh-3rem))] w-[min(26rem,calc(100vw-3rem))] flex-col overflow-hidden rounded-lg border border-border/80 bg-card/98 shadow-[0_28px_70px_-36px_rgba(20,33,61,0.30)]",
               compactExiting ? "chat-compact-exit" : "chat-compact-enter",
             )}
           >

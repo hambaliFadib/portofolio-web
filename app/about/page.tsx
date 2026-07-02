@@ -149,7 +149,7 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
           <div className="max-w-3xl space-y-8">
             <div className="space-y-6">
-              <h1 className="text-5xl font-semibold leading-[1.06] text-foreground sm:text-6xl">
+              <h1 className="text-5xl font-semibold leading-[1.15] text-foreground sm:text-6xl">
                 <LocalizedText
                   text={{
                     en: dictionary.en.about.title,
@@ -157,7 +157,7 @@ export default function AboutPage() {
                   }}
                 />
               </h1>
-              <p className="max-w-2xl text-lg leading-9 text-muted-foreground">
+              <p className="max-w-prose text-lg leading-9 text-muted-foreground">
                 <LocalizedText
                   text={{
                     en: dictionary.en.about.summary,
@@ -167,7 +167,7 @@ export default function AboutPage() {
               </p>
             </div>
 
-            <blockquote className="border-l-2 border-primary/50 pl-5 text-xl italic leading-9 text-foreground/82">
+            <blockquote className="border-l-2 border-primary/50 pl-5 text-xl italic leading-9 text-muted-foreground">
               <LocalizedText
                 text={{
                   en: dictionary.en.about.principle,
@@ -177,7 +177,7 @@ export default function AboutPage() {
             </blockquote>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg" className="h-12 rounded-full px-6">
+              <Button asChild size="lg" className="h-12 rounded-full px-6 py-1">
                 <a href={aboutCvAction.href} target="_blank" rel="noreferrer">
                   <EyeIcon className="size-[13px] [height:9px]" />
                   <LocalizedText
@@ -192,7 +192,7 @@ export default function AboutPage() {
                 asChild
                 variant="outline"
                 size="lg"
-                className="h-12 rounded-full border-border/80 bg-background/80 px-6"
+                className="h-12 rounded-full border-border/80 bg-background/80 px-6 py-1"
               >
                 <Link href="/contact">
                   <LocalizedText
@@ -208,7 +208,7 @@ export default function AboutPage() {
           </div>
 
           <div className="relative mx-auto w-full max-w-[37rem] lg:mx-0 lg:justify-self-end">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border/70 bg-secondary/35 shadow-[0_30px_80px_-50px_rgba(20,33,61,0.55)]">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border/70 bg-secondary/65 shadow-[0_30px_80px_-50px_rgba(20,33,61,0.30)]">
               <Image
                 src="/fotoAbout.jpg"
                 alt={aboutProfile.image.alt}
@@ -217,7 +217,7 @@ export default function AboutPage() {
                 sizes="(min-width: 1280px) 592px, (min-width: 1024px) 46vw, 92vw"
                 className="object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/28 via-transparent to-white/10 dark:from-black/42" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/24 via-transparent to-white/12 dark:from-black/36" />
             </div>
           </div>
         </div>
@@ -263,7 +263,7 @@ export default function AboutPage() {
                             className="h-12 w-12"
                           />
                           <div className="min-w-0">
-                            <CardTitle className="text-xl leading-tight text-foreground">
+                            <CardTitle className="text-xl leading-normal text-foreground">
                               <LocalizedText
                                 text={localizedCopy(entry.role, translatedEntry?.role)}
                               />
@@ -298,7 +298,7 @@ export default function AboutPage() {
                           </span>
                         </div>
 
-                        <p className="text-sm leading-7 text-foreground/84">
+                        <p className="text-sm leading-7 text-muted-foreground">
                           <LocalizedText
                             text={localizedCopy(entry.summary, translatedEntry?.summary)}
                           />
@@ -308,7 +308,7 @@ export default function AboutPage() {
                           {entry.focusItems.slice(0, 4).map((item, index) => (
                             <div
                               key={item}
-                              className="flex gap-3 rounded-lg border border-border/70 bg-secondary/38 px-3 py-3 text-sm leading-6 text-muted-foreground"
+                              className="flex gap-3 rounded-lg border border-border/70 bg-secondary/70 px-3 py-3 text-sm leading-6 text-muted-foreground"
                             >
                               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                               <span>
@@ -366,10 +366,10 @@ export default function AboutPage() {
                             className="h-12 w-12"
                           />
                           <div className="min-w-0">
-                            <CardTitle className="text-xl leading-tight text-foreground">
+                            <CardTitle className="text-xl leading-normal text-foreground">
                               {item.institution}
                             </CardTitle>
-                            <p className="mt-2 text-sm leading-6 text-foreground/84">
+                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
                               <LocalizedText
                                 text={localizedCopy(
                                   item.degree,
@@ -379,10 +379,10 @@ export default function AboutPage() {
                             </p>
                           </div>
                         </div>
-                        <p className="font-mono text-[11px] font-medium uppercase text-primary/80">
+                        <p className="font-mono text-[11px] font-medium capitalize text-primary/80">
                           <EducationRange item={item} />
                         </p>
-                        <p className="rounded-lg border border-border/70 bg-secondary/38 p-4 text-sm leading-7 text-muted-foreground">
+                        <p className="rounded-lg border border-border/70 bg-secondary/70 p-4 text-sm leading-7 text-muted-foreground">
                           <LocalizedText
                             text={localizedCopy(item.note, translatedEducation?.note)}
                           />
@@ -435,7 +435,7 @@ export default function AboutPage() {
                 <Card key={group.id} className="h-full border-border/70 bg-card/92">
                   <CardContent className="flex h-full flex-col gap-5 p-6">
                     <div className="flex items-start justify-between gap-4">
-                      <CardTitle className="text-xl leading-tight text-foreground">
+                      <CardTitle className="text-xl leading-snug text-foreground">
                         <LocalizedText
                           text={localizedCopy(group.title, translatedGroup?.title)}
                         />
@@ -447,7 +447,7 @@ export default function AboutPage() {
                       {group.items.map((item, index) => (
                         <span
                           key={item}
-                          className="skill-pill rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[13px] leading-5 text-foreground/86 hover:border-primary/20 hover:bg-primary/5"
+                          className="skill-pill rounded-full border border-border/70 bg-secondary/50 px-3 py-1.5 text-[13px] leading-5 text-muted-foreground hover:border-primary/20 hover:bg-primary/5"
                         >
                           <LocalizedText
                             text={localizedCopy(item, translatedItems[index])}
@@ -498,7 +498,7 @@ export default function AboutPage() {
               <Card key={item} className="h-full border-border/70 bg-card/92">
                 <CardContent className="flex h-full items-center gap-4 p-8">
                   <Sparkles className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="text-lg leading-8 text-foreground/86">
+                  <p className="text-lg leading-8 text-muted-foreground">
                     <LocalizedText
                       text={localizedCopy(
                         item,

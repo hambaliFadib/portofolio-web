@@ -283,7 +283,7 @@ export function ProjectJourneySection({
                                     className={cn(
                                       "rounded-lg border px-3 py-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-300 motion-safe:hover:-translate-y-px",
                                       isActive
-                                        ? "border-primary/28 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.5)]"
+                                        ? "border-primary/28 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.28)]"
                                         : "border-border/70 bg-card/76 hover:border-primary/18 hover:bg-card/95",
                                     )}
                                     onClick={() => setActiveDetailId(panel.id)}
@@ -310,12 +310,12 @@ export function ProjectJourneySection({
                               <MarkedText text={activeDetail.title} />
                             </p>
                             {activeDetail.body ? (
-                              <p className="mt-3 text-sm leading-7 text-foreground/86">
+                              <p className="mt-3 max-w-prose text-sm leading-7 text-muted-foreground">
                                 <MarkedText text={activeDetail.body} />
                               </p>
                             ) : null}
                             {activeDetail.items ? (
-                              <ul className="mt-3 space-y-2 text-sm leading-6 text-foreground/86">
+                              <ul className="mt-3 max-w-prose space-y-2 text-sm leading-6 text-muted-foreground">
                                 {activeDetail.items.map((item) => (
                                   <li key={item} className="flex gap-2">
                                     <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/75" />
