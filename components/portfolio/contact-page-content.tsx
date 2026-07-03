@@ -370,7 +370,7 @@ export function ContactPageContent() {
                     target={isExternal ? "_blank" : undefined}
                     rel={isExternal ? "noopener noreferrer" : undefined}
                     aria-label={channel.label}
-                    className="group flex min-h-[72px] items-center gap-5 rounded-lg border border-transparent bg-card/92 px-5 py-4 shadow-[0_18px_55px_-42px_rgba(20,33,61,0.35)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-primary/18 hover:bg-card hover:shadow-[0_24px_60px_-42px_rgba(20,33,61,0.42)] motion-safe:hover:-translate-y-px"
+                    className="group flex min-h-[72px] items-center gap-5 rounded-lg border border-transparent bg-card/92 px-5 py-4 shadow-[0_18px_55px_-42px_rgba(20,33,61,0.28)] transition-[transform,border-color,background-color,box-shadow] duration-300 hover:border-primary/18 hover:bg-card hover:shadow-[0_24px_60px_-42px_rgba(20,33,61,0.28)] motion-safe:hover:-translate-y-px"
                   >
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-foreground">
                       <Icon className="h-5 w-5" />
@@ -389,7 +389,7 @@ export function ContactPageContent() {
             </div>
           </div>
 
-          <div className="rounded-[1.125rem] border border-border/70 bg-card/95 p-6 shadow-[0_28px_80px_-56px_rgba(20,33,61,0.38)] sm:p-8 lg:p-12 max-h-[80vh] overflow-y-auto">
+          <div className="rounded-[1.125rem] border border-border/70 bg-card/95 p-6 shadow-[0_28px_80px_-56px_rgba(20,33,61,0.28)] sm:p-8 lg:p-12 max-h-[80vh] overflow-y-auto">
             <form className="space-y-7" onSubmit={handleSubmit}>
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-3">

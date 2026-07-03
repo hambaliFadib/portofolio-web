@@ -19,7 +19,7 @@ export function HomeCapabilitySection() {
           return (
             <Card
               key={capability.title}
-              className="h-full border-border/70 bg-card/92 py-1.5 shadow-[0_24px_70px_-52px_rgba(20,33,61,0.42)]"
+              className="h-full border-border/70 bg-card/92 py-1.5 shadow-[0_24px_70px_-52px_rgba(20,33,61,0.28)]"
             >
               <CardContent className="flex h-full flex-col gap-5 p-8">
                 <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/15 bg-primary/8 text-primary">

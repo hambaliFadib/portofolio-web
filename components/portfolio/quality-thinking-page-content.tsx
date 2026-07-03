@@ -12,7 +12,7 @@ function ThoughtVisual() {
   const { t } = useLanguage();
 
   return (
-    <div className="grid-bg relative min-h-[25rem] overflow-hidden rounded-lg border border-border/70 bg-card/82 shadow-[0_28px_80px_-54px_rgba(20,33,61,0.48)]">
+    <div className="grid-bg relative min-h-[25rem] overflow-hidden rounded-lg border border-border/70 bg-card/82 shadow-[0_28px_80px_-54px_rgba(20,33,61,0.30)]">
       <div className="absolute left-1/2 top-1/2 w-[min(24rem,82%)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border/70 bg-background/84 p-8 text-center backdrop-blur">
         <BrainCircuit className="mx-auto h-8 w-8 text-primary" />
         <h2 className="mt-4 text-2xl font-semibold text-foreground">

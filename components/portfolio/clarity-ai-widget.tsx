@@ -757,7 +757,7 @@ export function ClarityAIWidget() {
               onSubmit={handleSubmit}
             >
               <div className="mx-auto max-w-3xl">
-                <div className="flex items-end gap-2 rounded-lg border border-border/80 bg-card/95 p-2 shadow-[0_24px_60px_-44px_rgba(20,33,61,0.45)]">
+                <div className="flex items-end gap-2 rounded-lg border border-border/80 bg-card/95 p-2 shadow-[0_24px_60px_-44px_rgba(20,33,61,0.30)]">
                   <Textarea
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}

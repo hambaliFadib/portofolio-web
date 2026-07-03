@@ -148,7 +148,7 @@ export function ProjectJourneySection({
           </p>
         </div>
 
-        <div className="grid-bg relative overflow-hidden rounded-lg border border-border/70 bg-card/90 p-4 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.42)] sm:p-6 lg:p-8">
+        <div className="grid-bg relative overflow-hidden rounded-lg border border-border/70 bg-card/90 p-4 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.28)] sm:p-6 lg:p-8">
           <svg
             className="pointer-events-none absolute inset-0 h-full w-full text-primary/18"
             aria-hidden="true"
@@ -193,7 +193,7 @@ export function ProjectJourneySection({
                   className={cn(
                     "group relative rounded-lg border bg-background/82 transition-[transform,border-color,background-color,box-shadow] duration-500 motion-safe:hover:-translate-y-px",
                     isOpen
-                      ? "border-primary/24 bg-background/95 shadow-[0_22px_60px_-48px_rgba(20,33,61,0.44)]"
+                      ? "border-primary/24 bg-background/95 shadow-[0_22px_60px_-48px_rgba(20,33,61,0.28)]"
                       : "border-border/70 hover:border-primary/18 hover:bg-background/90",
                   )}
                 >
@@ -231,7 +231,7 @@ export function ProjectJourneySection({
                       <h3 className="text-xl font-semibold leading-tight text-foreground">
                         <MarkedText text={projectView.title} />
                       </h3>
-                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
+                      <p className="mt-2 line-clamp-2 max-w-prose text-sm leading-6 text-muted-foreground">
                         <MarkedText text={getProjectSummary(projectView)} />
                       </p>
                     </div>

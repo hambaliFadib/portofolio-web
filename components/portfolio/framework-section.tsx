@@ -26,7 +26,7 @@ export function FrameworkSection() {
         />
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
-          <div className="grid-bg rounded-lg border border-border/70 bg-card/88 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.36)]">
+          <div className="grid-bg rounded-lg border border-border/70 bg-card/88 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.28)]">
             <div className="rounded-lg border border-primary/18 bg-background/90 p-4">
               <p className="font-mono text-[11px] uppercase text-primary/80">
                 <MarkedText text={content.positioningLabel} />
@@ -57,7 +57,7 @@ export function FrameworkSection() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border/70 bg-card/94 p-4 shadow-[0_28px_80px_-58px_rgba(20,33,61,0.4)] sm:p-5">
+          <div className="rounded-lg border border-border/70 bg-card/94 p-4 shadow-[0_28px_80px_-58px_rgba(20,33,61,0.28)] sm:p-5">
             <div className="grid gap-3 md:grid-cols-4">
               {content.blocks.map((block, index) => {
                 const isActive = index === activeStep;
@@ -70,7 +70,7 @@ export function FrameworkSection() {
                     className={cn(
                       "group rounded-lg border px-3 py-3 text-left transition-[transform,border-color,background-color,box-shadow] duration-300 motion-safe:hover:-translate-y-px",
                       isActive
-                        ? "border-primary/30 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.45)]"
+                        ? "border-primary/30 bg-primary/8 shadow-[0_16px_42px_-34px_rgba(20,33,61,0.28)]"
                         : "border-border/70 bg-background/74 hover:border-primary/20 hover:bg-background/94",
                     )}
                     onClick={() => setActiveStep(index)}

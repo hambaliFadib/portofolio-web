@@ -76,7 +76,7 @@ export function QualityThinkingSection() {
           <div className="relative grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
             <div className="rounded-lg border border-primary/18 bg-background/92 p-4">
               <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_18px_45px_-28px_rgba(20,33,61,0.45)]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[0_18px_45px_-28px_rgba(20,33,61,0.28)]">
                   <BrainCircuit className="h-5 w-5" />
                 </span>
                 <div>
@@ -130,7 +130,7 @@ export function QualityThinkingSection() {
               </div>
             </div>
 
-            <div className="min-w-0 rounded-lg border border-border/70 bg-background/95 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.38)] sm:p-5">
+            <div className="min-w-0 rounded-lg border border-border/70 bg-background/95 p-4 shadow-[0_24px_70px_-56px_rgba(20,33,61,0.28)] sm:p-5">
               <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="max-w-3xl">
                   <p className="font-mono text-[11px] font-medium uppercase text-primary/80">

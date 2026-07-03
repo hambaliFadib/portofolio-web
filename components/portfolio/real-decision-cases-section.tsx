@@ -342,7 +342,7 @@ export function RealDecisionCasesSection() {
           </p>
         </div>
 
-        <div className="grid-bg relative overflow-hidden rounded-lg border border-border/70 bg-card/90 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.42)]">
+        <div className="grid-bg relative overflow-hidden rounded-lg border border-border/70 bg-card/90 shadow-[0_30px_90px_-62px_rgba(20,33,61,0.28)]">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 bg-background/82 px-4 py-3">
             <div>
               <p className="font-mono text-[11px] uppercase text-primary/80">
@@ -575,7 +575,7 @@ export function RealDecisionCasesSection() {
                 {activeStep ? (
                   <div
                     key={activeStep.id}
-                    className="absolute rounded-lg border border-primary/22 bg-card/96 p-4 shadow-[0_24px_70px_-44px_rgba(20,33,61,0.48)] transition-opacity duration-300 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-3"
+                    className="absolute rounded-lg border border-primary/22 bg-card/96 p-4 shadow-[0_24px_70px_-44px_rgba(20,33,61,0.30)] transition-opacity duration-300 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-3"
                     style={{
                       left: `${detailNodeLeft}px`,
                       top: `${detailNodeTop}px`,
@@ -625,7 +625,7 @@ export function RealDecisionCasesSection() {
               </p>
             </div>
 
-            <div className="rounded-lg border border-border/70 bg-card/92 p-4 shadow-[0_26px_76px_-58px_rgba(20,33,61,0.36)] sm:p-5">
+            <div className="rounded-lg border border-border/70 bg-card/92 p-4 shadow-[0_26px_76px_-58px_rgba(20,33,61,0.28)] sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-mono text-[11px] uppercase text-primary/80">
