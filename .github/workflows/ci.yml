@@ -1,0 +1,322 @@
+name: Portfolio CI
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    name: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      TEST_SHA: ${{ github.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+      B03_PREVIEW_URL: http://127.0.0.1:3000
+    steps:
+      - name: Checkout exact tested revision
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify tested revision SHA
+        id: verify_sha
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          if [[ "$actual" != "$TEST_SHA" ]]; then
+            echo "Expected tested SHA $TEST_SHA; checked out $actual" >&2
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" && -z "$PR_HEAD_SHA" ]]; then
+            echo "PR head SHA was not provided by the event." >&2
+            exit 1
+          fi
+          echo "PR head SHA: $PR_HEAD_SHA"
+          echo "Tested merge/push SHA: $TEST_SHA"
+      - name: Initialize runner-local evidence directory
+        id: evidence_dir
+        shell: bash
+        run: |
+          evidence_dir="$(mktemp -d "$RUNNER_TEMP/portfolio-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.XXXXXX")"
+          echo "CI_EVIDENCE_DIR=$evidence_dir" >> "$GITHUB_ENV"
+          echo "path=$evidence_dir" >> "$GITHUB_OUTPUT"
+          echo "Evidence directory: $evidence_dir"
+      - name: Set up Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Classify source profile and require complete check tooling
+        id: profile
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const has = (p) => fs.existsSync(p);
+          const markers = [
+            has('features'),
+            has('features/home'),
+            has('features/theme'),
+            has('features/home/ui/dark-editorial-hero.tsx'),
+            has('features/theme/ui/theme-toggle.tsx'),
+            has('scripts'),
+            has('scripts/check-feature-boundaries.mjs'),
+            has('scripts/check-feature-boundaries.test.mjs'),
+            has('design-preview/paper-reveal-b03'),
+            has('design-preview/paper-reveal-b03/verify-production.mjs'),
+            Boolean(pkg.scripts?.['test:feature-boundaries']),
+            Boolean(pkg.scripts?.['verify:browser']),
+            Boolean(pkg.devDependencies?.playwright || pkg.dependencies?.playwright),
+            Boolean(pkg.devDependencies?.eslint || pkg.dependencies?.eslint),
+          ];
+          const modular = markers.some(Boolean);
+          const requireFiles = (paths) => {
+            const missing = paths.filter((p) => !has(p));
+            if (missing.length) throw new Error('Incomplete modular profile; missing files: ' + missing.join(', '));
+          };
+          const requireScripts = (names) => {
+            const missing = names.filter((name) => !pkg.scripts?.[name]);
+            if (missing.length) throw new Error('Missing required package scripts: ' + missing.join(', '));
+          };
+          requireFiles(['package-lock.json']);
+          requireScripts(['build', 'start', 'typecheck', 'lint']);
+          if (modular) {
+            requireScripts(['test:feature-boundaries', 'verify:browser']);
+            requireFiles([
+              'features/home/ui/dark-editorial-hero.tsx',
+              'features/theme/ui/theme-toggle.tsx',
+              'scripts/verify-browser-regression.mjs',
+              'scripts/check-feature-boundaries.mjs',
+              'scripts/check-feature-boundaries.test.mjs',
+              'design-preview/paper-reveal-b03/verify-production.mjs',
+              'design-preview/paper-reveal-b03/verify-cleanup-regression.mjs',
+            ]);
+            if (pkg.scripts['test:feature-boundaries'] !== 'node scripts/check-feature-boundaries.test.mjs') {
+              throw new Error('Unexpected feature-boundary test command contract.');
+            }
+            if (!pkg.scripts.lint.includes('eslint') || !pkg.scripts.lint.includes('check-feature-boundaries')) {
+              throw new Error('Modular lint contract must run ESLint and feature-boundary validation.');
+            }
+            if (!pkg.devDependencies?.playwright && !pkg.dependencies?.playwright) {
+              throw new Error('Modular profile is missing the Playwright dependency.');
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'profile=modular\n');
+            console.log('Source profile: modular');
+          } else {
+            if (pkg.scripts.lint !== 'npm run typecheck' ||
+                pkg.devDependencies?.eslint || pkg.dependencies?.eslint ||
+                pkg.devDependencies?.playwright || pkg.dependencies?.playwright) {
+              throw new Error('Source profile is neither a complete modular app nor the verified legacy script contract.');
+            }
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'profile=legacy\n');
+            console.log('Source profile: legacy');
+          }
+          NODE
+      - name: Install locked dependencies
+        id: install
+        run: npm ci
+      - name: Production build
+        id: build
+        run: npm run build
+      - name: TypeScript validation
+        id: typecheck
+        run: npm run typecheck
+      - name: Lint (ESLint on modular; configured alias on legacy)
+        id: lint
+        run: npm run lint
+      - name: Feature-boundary deterministic test
+        id: boundaries
+        if: steps.profile.outputs.profile == 'modular'
+        run: npm run test:feature-boundaries
+      - name: Install Playwright Chromium and Linux dependencies
+        id: chromium
+        if: steps.profile.outputs.profile == 'modular'
+        run: npx playwright install --with-deps chromium
+      - name: Start production server from tested build
+        id: server
+        if: steps.profile.outputs.profile == 'modular'
+        shell: bash
+        run: |
+          mkdir -p "$CI_EVIDENCE_DIR"
+          ./node_modules/.bin/next start --hostname 127.0.0.1 --port 3000 \
+            > "$CI_EVIDENCE_DIR/next-start.log" 2>&1 &
+          echo "$!" > "$CI_EVIDENCE_DIR/next-start.pid"
+      - name: Wait for production server health
+        id: health
+        if: steps.profile.outputs.profile == 'modular'
+        shell: bash
+        run: |
+          node <<'NODE'
+          (async () => {
+            const deadline = Date.now() + 60000;
+            const url = process.env.B03_PREVIEW_URL;
+            let lastError = 'no response';
+            while (Date.now() < deadline) {
+              try {
+                const response = await fetch(url);
+                if (response.ok) {
+                  console.log('Production server healthy: ' + response.status + ' ' + url);
+                  return;
+                }
+                lastError = 'HTTP ' + response.status;
+              } catch (error) {
+                lastError = error.message;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+            throw new Error('Production server health check timed out: ' + lastError);
+          })().catch((error) => { console.error(error); process.exitCode = 1; });
+          NODE
+      - name: Run established B03 Theme Reveal production checks
+        id: b03
+        if: steps.profile.outputs.profile == 'modular'
+        shell: bash
+        run: |
+          export B03_PRODUCTION_OUTPUT_DIR="$CI_EVIDENCE_DIR/b03"
+          export B03_PRODUCTION_FRAMES_DIR="$CI_EVIDENCE_DIR/b03/frames"
+          node design-preview/paper-reveal-b03/verify-production.mjs
+      - name: Require B03 report and frame evidence
+        id: b03_evidence
+        if: steps.profile.outputs.profile == 'modular'
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = path.join(process.env.CI_EVIDENCE_DIR, 'b03');
+          const reportPath = path.join(root, 'production-verification.json');
+          if (!fs.existsSync(reportPath)) throw new Error('B03 verification report is missing.');
+          if (fs.statSync(reportPath).size === 0) throw new Error('B03 verification report is empty.');
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+          if (!report || typeof report !== 'object' || !Array.isArray(report.checks)) {
+            throw new Error('B03 report has a malformed checks list.');
+          }
+          if (report.checks.length !== 31) {
+            throw new Error('Expected exactly 31 B03 checks; found ' + report.checks.length + '.');
+          }
+          const names = new Set();
+          for (const [index, check] of report.checks.entries()) {
+            if (!check || typeof check !== 'object' ||
+                typeof check.name !== 'string' || check.name.trim() === '' ||
+                check.name !== check.name.trim() || typeof check.passed !== 'boolean') {
+              throw new Error('Malformed B03 check at index ' + index + '.');
+            }
+            if (names.has(check.name)) throw new Error('Duplicate B03 check name: ' + check.name);
+            names.add(check.name);
+          }
+          const passed = report.checks.filter((check) => check.passed).length;
+          const failed = report.checks.length - passed;
+          if (!report.counts || report.counts.passed !== 31 || report.counts.failed !== 0 ||
+              passed !== 31 || failed !== 0) {
+            throw new Error('B03 report has failed or inconsistent counts: ' +
+              JSON.stringify({ reported: report.counts, observed: { passed, failed } }));
+          }
+          const frames = path.join(root, 'frames');
+          const required = [
+            'dark-idle-click-theme-reveal.png',
+            'light-idle-click-theme-reveal.png',
+            'dark-hover-click-theme-reveal.png',
+            'light-hover-click-theme-reveal.png',
+          ];
+          for (const name of required) {
+            const file = path.join(frames, name);
+            if (!fs.existsSync(file)) throw new Error('Required B03 frame evidence is missing: ' + name);
+            const stat = fs.statSync(file);
+            if (!stat.isFile() || stat.size === 0) {
+              throw new Error('Required B03 frame evidence is empty or not a file: ' + name);
+            }
+            const signature = Buffer.alloc(8);
+            const fd = fs.openSync(file, 'r');
+            try {
+              if (fs.readSync(fd, signature, 0, signature.length, 0) !== signature.length ||
+                  !signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+                throw new Error('Required B03 frame is not a complete PNG file: ' + name);
+              }
+            } finally {
+              fs.closeSync(fd);
+            }
+          }
+          console.log('B03 report: ' + passed + ' passed, ' + failed + ' failed; unique names verified.');
+          console.log('Four required nonempty PNG frame captures verified.');
+          NODE
+      - name: Stop only the owned production server
+        if: always() && steps.profile.outputs.profile == 'modular'
+        shell: bash
+        run: |
+          pid_file="$CI_EVIDENCE_DIR/next-start.pid"
+          if [[ -f "$pid_file" ]]; then
+            pid="$(cat "$pid_file")"
+            if kill -0 "$pid" 2>/dev/null; then
+              command_line="$(ps -p "$pid" -o args= || true)"
+              case "$command_line" in
+                *node_modules/.bin/next*|*next/dist/bin/next*)
+                  kill -TERM "$pid"
+                  ;;
+                *)
+                  echo "PID $pid no longer identifies this workflow's Next server; leaving it untouched."
+                  ;;
+              esac
+            fi
+          fi
+      - name: Upload available failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portfolio-ci-failure-${{ github.run_id }}
+          path: ${{ steps.evidence_dir.outputs.path }}/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Write job summary
+        if: always()
+        env:
+          PROFILE: ${{ steps.profile.outputs.profile }}
+          PR_HEAD_SHA: ${{ env.PR_HEAD_SHA }}
+          TEST_SHA: ${{ env.TEST_SHA }}
+          SHA_CHECK: ${{ steps.verify_sha.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          BOUNDARIES: ${{ steps.boundaries.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
+          HEALTH: ${{ steps.health.outcome }}
+          B03: ${{ steps.b03.outcome }}
+          B03_EVIDENCE: ${{ steps.b03_evidence.outcome }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const profile = process.env.PROFILE || 'classification failed';
+          const status = (key, applicable = true) => {
+            if (!applicable) return 'NOT APPLICABLE (legacy baseline)';
+            return (process.env[key] || 'not reached').toUpperCase();
+          };
+          const rows = [
+            ['Tested revision SHA', status('SHA_CHECK')],
+            ['PR head SHA', process.env.PR_HEAD_SHA || 'NOT APPLICABLE (push event)'],
+            ['Tested merge/push SHA', process.env.TEST_SHA || 'unavailable'],
+            ['npm ci', status('INSTALL')],
+            ['Production build', status('BUILD')],
+            ['TypeScript', status('TYPECHECK')],
+            ['Lint command', status('LINT')],
+            ['ESLint', profile === 'legacy' ? 'NOT APPLICABLE — legacy lint is only the typecheck alias' : status('LINT')],
+            ['Feature-boundary deterministic test', status('BOUNDARIES', profile !== 'legacy')],
+            ['Chromium provisioning', status('CHROMIUM', profile !== 'legacy')],
+            ['Production-server health', status('HEALTH', profile !== 'legacy')],
+            ['B03 production verifier', status('B03', profile !== 'legacy')],
+            ['B03 report and frames', status('B03_EVIDENCE', profile !== 'legacy')],
+            ['Homepage regression', 'NOT RUN — separate from B03; three known baseline failures remain'],
+            ['Additional deterministic tests', profile === 'legacy' ? 'NOT APPLICABLE — no deterministic test runner declared' : profile === 'modular' ? 'No separate unit-test script declared' : 'NOT DETERMINED — profile classification failed'],
+          ];
+          let summary = '# Portfolio CI\n\n- Source profile: **' + profile + '**\n- Runtime: Node.js 22 on ubuntu-latest\n\n| Check | Result |\n|---|---|\n';
+          for (const [name, result] of rows) summary += '| ' + name + ' | ' + result + ' |\n';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          NODE
