@@ -1,27 +1,11 @@
 "use client";
 
-import { type PropsWithChildren, useEffect, useRef, useState } from "react";
+import { type PropsWithChildren, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { useLanguage } from "@/components/language-provider";
 
 export function PageMotion({ children }: PropsWithChildren) {
   const pathname = usePathname();
-  const { locale } = useLanguage();
   const pageRef = useRef<HTMLDivElement | null>(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const prevLocaleRef = useRef(locale);
-
-  // Handle locale change with fade transition
-  useEffect(() => {
-    if (prevLocaleRef.current !== locale) {
-      setIsTransitioning(true);
-      const timer = setTimeout(() => {
-        setIsTransitioning(false);
-      }, 300);
-      prevLocaleRef.current = locale;
-      return () => clearTimeout(timer);
-    }
-  }, [locale]);
 
   useEffect(() => {
     const page = pageRef.current;
@@ -63,9 +47,7 @@ export function PageMotion({ children }: PropsWithChildren) {
       <div
         key={pathname}
         ref={pageRef}
-        className={`route-transition-page transition-opacity duration-300 ${
-          isTransitioning ? "opacity-0" : "opacity-100"
-        }`}
+        className="route-transition-page transition-opacity duration-300 opacity-100"
       >
         {children}
       </div>

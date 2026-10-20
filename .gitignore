@@ -8,11 +8,6 @@ __v0_jsx-dev-runtime.ts
 .vercel/
 next.user-config.*
 
-# Environment variables
-.env
-.env.*
-!.env.example
-
 # Common ignores
 node_modules/
 .next/
@@ -20,5 +15,3 @@ node_modules/
 *.log
 *.err
 *.tsbuildinfo
-
-.vercel

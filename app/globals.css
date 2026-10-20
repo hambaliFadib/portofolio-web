@@ -3,84 +3,179 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Bright Sculptural World — design tokens.
+ *
+ * Environment is warm ivory; structure is ink charcoal; accents are
+ * coral, acid lime, cobalt, with pale blue and mint as material tints.
+ * Tokens are expressed in hex and converted to oklch via color-mix-free
+ * direct assignment so the palette stays exactly as art-directed.
+ * Existing semantic tokens (--background … --ring, --chart-*, --sidebar-*)
+ * remap onto this palette so every existing component inherits the world.
+ */
 :root {
-  --background: oklch(0.985 0.006 230);
-  --foreground: oklch(0.22 0.022 242);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.022 242);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.022 242);
-  --primary: oklch(0.42 0.09 235);
-  --primary-foreground: oklch(0.99 0.004 230);
-  --secondary: oklch(0.955 0.012 210);
-  --secondary-foreground: oklch(0.26 0.025 242);
-  --muted: oklch(0.955 0.01 210);
-  --muted-foreground: oklch(0.40 0.03 242);
-  --accent: oklch(0.92 0.035 170);
-  --accent-foreground: oklch(0.24 0.028 210);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.89 0.012 220);
-  --input: oklch(0.89 0.012 220);
-  --ring: oklch(0.52 0.08 220);
+  /* ── World palette (art direction source of truth) ───────────── */
+  --ivory: #F1EFE8;
+  --ivory-soft: #EDEBE4;
+  --ink: #111319;
+  --slate: #242832;
+  --coral: #FF7057;
+  --lime: #D9F17A;
+  --cobalt: #8299FF;
+  --pale-blue: #C9D8FF;
+  --mint: #A6E5DC;
+
+  /* ── Semantic remap: light theme (primary experience) ─────────── */
+  --background: #F1EFE8;
+  --foreground: #111319;
+  --card: #F7F5F0;
+  --card-foreground: #111319;
+  --popover: #F7F5F0;
+  --popover-foreground: #111319;
+  --primary: #111319;
+  --primary-foreground: #F1EFE8;
+  --secondary: #E9E6DD;
+  --secondary-foreground: #242832;
+  --muted: #E9E6DD;
+  --muted-foreground: #4A4E59;
+  --accent: #E9E6DD;
+  --accent-foreground: #111319;
+  --destructive: #C2452D;
+  --destructive-foreground: #F1EFE8;
+  --border: #D8D4C8;
+  --input: #D8D4C8;
+  --ring: #111319;
+
+  /* Expressive accents keep dedicated roles (used deliberately, not broadly) */
+  --color-coral: #FF7057;
+  --color-lime: #D9F17A;
+  --color-cobalt: #8299FF;
+  --color-pale-blue: #C9D8FF;
+  --color-mint: #A6E5DC;
+  --color-ivory: #F1EFE8;
+  --color-ivory-soft: #EDEBE4;
+  --color-ink: #111319;
+  --color-slate: #242832;
+
+  /* ── Material + lighting tokens ─────────────────────────────── */
+  /* Matte architectural surface: soft, non-reflective, stable */
+  --surface-matte: #EDEBE4;
+  /* Glossy sculptural surface: bright base for radial highlights */
+  --surface-gloss: #FFFFFF;
+  /* Translucent glass/resin tint */
+  --surface-glass: rgba(201, 216, 255, 0.28);
+
+  /* Cast shadows — the world is grounded, not floating */
+  --shadow-cast-sm: 0 10px 24px -16px rgba(17, 19, 25, 0.22);
+  --shadow-cast-md: 0 22px 44px -22px rgba(17, 19, 25, 0.28);
+  --shadow-cast-lg: 0 40px 80px -36px rgba(17, 19, 25, 0.34);
+  /* Soft contact shadow grounding sculptural objects */
+  --shadow-contact: 0 6px 14px -6px rgba(17, 19, 25, 0.30);
+  /* Rim separation for objects against the ivory field */
+  --shadow-rim: 0 0 0 1px rgba(17, 19, 25, 0.06);
+
+  /* Ambient environment wash — gentle warm gradient, not a flat field */
+  --page-gradient:
+    radial-gradient(120% 90% at 82% -10%, rgba(166, 229, 220, 0.20), transparent 55%),
+    radial-gradient(100% 80% at 8% 0%, rgba(201, 216, 255, 0.22), transparent 50%),
+    linear-gradient(180deg, #F4F2EB 0%, #EDEBE4 52%, #F1EFE8 100%);
+
   --chart-1: oklch(0.34 0.09 257);
   --chart-2: oklch(0.72 0.05 235);
   --chart-3: oklch(0.84 0.04 220);
   --chart-4: oklch(0.62 0.08 245);
   --chart-5: oklch(0.54 0.07 210);
   --radius: 1rem;
-  --sidebar: oklch(0.985 0.006 230);
-  --sidebar-foreground: oklch(0.22 0.022 242);
-  --sidebar-primary: oklch(0.42 0.09 235);
-  --sidebar-primary-foreground: oklch(0.99 0.004 230);
-  --sidebar-accent: oklch(0.955 0.012 210);
-  --sidebar-accent-foreground: oklch(0.22 0.022 242);
-  --sidebar-border: oklch(0.89 0.012 220);
-  --sidebar-ring: oklch(0.52 0.08 220);
-  --page-gradient:
-    linear-gradient(180deg, #f8fbff 0%, #eef5f7 48%, #f7f9fb 100%);
+  --sidebar: #E9E6DD;
+  --sidebar-foreground: #111319;
+  --sidebar-primary: #111319;
+  --sidebar-primary-foreground: #F1EFE8;
+  --sidebar-accent: #E1DED4;
+  --sidebar-accent-foreground: #111319;
+  --sidebar-border: #D8D4C8;
+  --sidebar-ring: #111319;
 }
 
 .dark {
-  --background: oklch(0.18 0.018 235);
-  --foreground: oklch(0.96 0.01 230);
-  --card: oklch(0.22 0.018 235);
-  --card-foreground: oklch(0.96 0.01 230);
-  --popover: oklch(0.22 0.018 235);
-  --popover-foreground: oklch(0.96 0.01 230);
-  --primary: oklch(0.72 0.07 220);
-  --primary-foreground: oklch(0.2 0.018 235);
-  --secondary: oklch(0.28 0.018 235);
-  --secondary-foreground: oklch(0.96 0.01 245);
-  --muted: oklch(0.28 0.018 235);
-  --muted-foreground: oklch(0.76 0.01 245);
-  --accent: oklch(0.3 0.03 170);
-  --accent-foreground: oklch(0.96 0.01 245);
-  --destructive: oklch(0.45 0.18 24);
-  --destructive-foreground: oklch(0.96 0.01 245);
-  --border: oklch(0.34 0.018 235);
-  --input: oklch(0.34 0.018 235);
-  --ring: oklch(0.72 0.07 220);
+  /* Dark theme: same sculptural world on deep charcoal.
+     Ivory stays the light-bearing surface; accents keep their roles. */
+  --background: #101218;
+  --foreground: #EDEBE4;
+  --card: #171A21;
+  --card-foreground: #EDEBE4;
+  --popover: #171A21;
+  --popover-foreground: #EDEBE4;
+  --primary: #EDEBE4;
+  --primary-foreground: #101218;
+  --secondary: #1E222B;
+  --secondary-foreground: #EDEBE4;
+  --muted: #1E222B;
+  --muted-foreground: #9BA0AB;
+  --accent: #1E222B;
+  --accent-foreground: #EDEBE4;
+  --destructive: oklch(0.637 0.238 25.331);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: #2A2F3A;
+  --input: #2A2F3A;
+  --ring: #EDEBE4;
+
+  /* Expressive accents — slightly lifted for dark-field legibility */
+  --color-coral: #FF8A72;
+  --color-lime: #DDF58C;
+  --color-cobalt: #91A6FF;
+  --color-pale-blue: #C9D8FF;
+  --color-mint: #A6E5DC;
+  --color-ivory: #F1EFE8;
+  --color-ivory-soft: #EDEBE4;
+  --color-ink: #111319;
+  --color-slate: #242832;
+
+  /* Material + lighting tokens for the dark world */
+  --surface-matte: #1A1E26;
+  --surface-gloss: #2A2F3A;
+  --surface-glass: rgba(130, 153, 255, 0.16);
+
+  --shadow-cast-sm: 0 10px 24px -16px rgba(0, 0, 0, 0.55);
+  --shadow-cast-md: 0 22px 44px -22px rgba(0, 0, 0, 0.6);
+  --shadow-cast-lg: 0 40px 80px -36px rgba(0, 0, 0, 0.7);
+  --shadow-contact: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
+  --shadow-rim: 0 0 0 1px rgba(237, 235, 228, 0.08);
+
+  --page-gradient:
+    radial-gradient(120% 90% at 82% -10%, rgba(38, 44, 62, 0.5), transparent 55%),
+    radial-gradient(100% 80% at 8% 0%, rgba(28, 33, 46, 0.6), transparent 50%),
+    linear-gradient(180deg, #14171F 0%, #101218 52%, #12151D 100%);
+
   --chart-1: oklch(0.72 0.05 235);
   --chart-2: oklch(0.7 0.06 210);
   --chart-3: oklch(0.76 0.03 220);
   --chart-4: oklch(0.68 0.06 245);
   --chart-5: oklch(0.63 0.05 200);
-  --sidebar: oklch(0.22 0.018 235);
-  --sidebar-foreground: oklch(0.96 0.01 245);
-  --sidebar-primary: oklch(0.72 0.05 235);
-  --sidebar-primary-foreground: oklch(0.22 0.025 257);
-  --sidebar-accent: oklch(0.28 0.02 257);
-  --sidebar-accent-foreground: oklch(0.96 0.01 245);
-  --sidebar-border: oklch(0.34 0.02 257);
-  --sidebar-ring: oklch(0.72 0.05 235);
-  --page-gradient:
-    linear-gradient(180deg, #11171d 0%, #171d22 52%, #101417 100%);
+  --radius: 1rem;
+  --sidebar: #171A21;
+  --sidebar-foreground: #EDEBE4;
+  --sidebar-primary: #EDEBE4;
+  --sidebar-primary-foreground: #101218;
+  --sidebar-accent: #1E222B;
+  --sidebar-accent-foreground: #EDEBE4;
+  --sidebar-border: #2A2F3A;
+  --sidebar-ring: #EDEBE4;
 }
 
 @theme inline {
   --font-sans: "Aptos", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
   --font-mono: "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+  --font-display: "Space Grotesk", "Aptos", "Segoe UI Variable Text", sans-serif;
+  --color-display: var(--color-foreground);
+  --color-coral: var(--color-coral);
+  --color-lime: var(--color-lime);
+  --color-cobalt: var(--color-cobalt);
+  --color-pale-blue: var(--color-pale-blue);
+  --color-mint: var(--color-mint);
+  --color-ivory: var(--color-ivory);
+  --color-ivory-soft: var(--color-ivory-soft);
+  --color-ink: var(--color-ink);
+  --color-slate: var(--color-slate);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -150,7 +245,7 @@
    * Elements that are already animating (will-change: transform/opacity) or
    * explicit animation/keyframe targets are excluded via :not().
    */
-  html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal):not(.thinking-bulb):not(.thinking-orbit):not(.thinking-bar),
+  html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal),
   html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::before,
   html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::after {
     transition-duration: 320ms !important;
@@ -161,6 +256,12 @@
       fill,
       stroke !important;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  /* Keep the hero heading readable when its background gradient commits. */
+  html.theme-transitioning #top h1,
+  html.theme-transitioning #top h1 > span {
+    transition: none !important;
   }
 
   /* Subtle colour-wash overlay — z-index kept below mobile menu overlay */
@@ -217,38 +318,6 @@
     background-size: 40px 40px;
   }
 
-  .ai-system-grid {
-    --ai-grid-size: 40px;
-    isolation: isolate;
-    background-image:
-      linear-gradient(to right, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px);
-    background-size:
-      var(--ai-grid-size) var(--ai-grid-size),
-      var(--ai-grid-size) var(--ai-grid-size);
-  }
-
-  .ai-system-grid > * {
-    position: relative;
-    z-index: 2;
-  }
-
-  .ai-system-grid > .ai-particle-field {
-    z-index: 1;
-  }
-
-  .thinking-bulb {
-    animation: thinking-bulb-glow 1.9s ease-in-out infinite;
-  }
-
-  .thinking-orbit {
-    animation: thinking-orbit-spin 2.8s linear infinite;
-  }
-
-  .thinking-bar {
-    animation: thinking-bar-pulse 1.25s ease-in-out infinite;
-  }
-
   .route-transition-page {
     animation: route-slide-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
@@ -275,38 +344,6 @@
       box-shadow 220ms ease;
   }
 
-  @keyframes thinking-bulb-glow {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 rgba(37, 99, 135, 0.08);
-      opacity: 0.76;
-    }
-
-    50% {
-      box-shadow: 0 0 18px 2px rgba(37, 99, 135, 0.18);
-      opacity: 1;
-    }
-  }
-
-  @keyframes thinking-orbit-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  @keyframes thinking-bar-pulse {
-    0%,
-    100% {
-      transform: scaleX(0.72);
-      opacity: 0.5;
-    }
-
-    50% {
-      transform: scaleX(1);
-      opacity: 1;
-    }
-  }
-
   @keyframes route-slide-in {
     from {
       opacity: 0;
@@ -325,87 +362,6 @@
     100% { opacity: 0; }
   }
 
-  /* ─── AI Chat Widget Animations ──────────────────────────────────────── */
-
-  /*
-   * compact card enter: card "unfolds" upward from the button position.
-   * clip-path starts with only the bottom sliver visible (near the button),
-   * then progressively reveals the rest of the card upward — like pulling cloth.
-   */
-  .chat-compact-enter {
-    animation: chat-compact-unfold 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  /*
-   * compact card exit: card collapses back down before workspace expands.
-   */
-  .chat-compact-exit {
-    animation: chat-compact-fold 240ms cubic-bezier(0.55, 0, 1, 0.45) both;
-    pointer-events: none;
-  }
-
-  /*
-   * workspace enter: full-screen workspace grows from the compact card corner
-   * (bottom-right), giving the impression of the card expanding to fill the screen.
-   */
-  .chat-workspace-enter {
-    animation: chat-workspace-spread 440ms cubic-bezier(0.34, 1.08, 0.64, 1) both;
-  }
-
-  @keyframes chat-compact-unfold {
-    0%   {
-      opacity: 0;
-      clip-path: inset(90% 0 0 0 round 0.6rem);
-      transform: translateY(10px);
-    }
-    45%  { opacity: 1; }
-    100% {
-      opacity: 1;
-      clip-path: inset(0% 0 0 0 round 0.6rem);
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes chat-compact-fold {
-    0%   {
-      opacity: 1;
-      clip-path: inset(0 0 0%  0 round 0.6rem);
-      transform: scale(1);
-    }
-    100% {
-      opacity: 0;
-      clip-path: inset(0 0 90% 0 round 0.6rem);
-      transform: scale(0.97);
-    }
-  }
-
-  @keyframes chat-workspace-spread {
-    /*
-     * Uses clip-path instead of transform: scale() so that the element
-     * retains its full DOM dimensions at all times. This ensures the
-     * AiParticleField canvas initialises at the correct full-screen size
-     * (getBoundingClientRect returns the real size, not a scaled one).
-     *
-     * The clip starts at approximately the compact card's position
-     * (bottom-right, 26rem wide × 42rem tall at 1.5rem offset)
-     * and expands to fill the full viewport.
-     */
-    0% {
-      opacity: 0;
-      clip-path: inset(
-        max(0px, calc(100vh - 42rem - 1.5rem))
-        1.5rem
-        1.5rem
-        max(0px, calc(100vw - 26rem - 1.5rem))
-        round 0.75rem
-      );
-    }
-    35% { opacity: 1; }
-    100% {
-      opacity: 1;
-      clip-path: inset(0px 0px 0px 0px round 0px);
-    }
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -417,14 +373,8 @@
     transition: none;
   }
 
-  .thinking-bulb,
-  .thinking-orbit,
-  .thinking-bar,
   .route-transition-page,
-  .scroll-reveal,
-  .chat-compact-enter,
-  .chat-compact-exit,
-  .chat-workspace-enter {
+  .scroll-reveal {
     animation: none;
     opacity: 1;
     transform: none;
@@ -437,4 +387,105 @@
     transform: translateY(-1px);
     box-shadow: 0 14px 30px -28px rgba(11, 36, 84, 0.35);
   }
+
+  /* ─── Bright Sculptural World — material utilities ────────────
+   * Roles, not decorations:
+   *   matte  → architectural structure (platforms, frames, planes)
+   *   glossy → expressive sculptural objects (hero focal elements)
+   *   glass  → translucent resin layers and connection structures
+   * Shadows come from the --shadow-* tokens so light and dark
+   * themes share the same grounding logic.
+   */
+  .world-matte {
+    background-color: var(--surface-matte);
+    box-shadow:
+      var(--shadow-contact),
+      var(--shadow-rim);
+  }
+
+  .world-matte-raised {
+    background-color: var(--surface-matte);
+    box-shadow:
+      var(--shadow-cast-md),
+      var(--shadow-rim);
+  }
+
+  /*
+   * Glossy object: bright base with a soft top-left key highlight.
+   * Color comes from the element's own background — utility only
+   * shapes the light response.
+   */
+  .world-glossy {
+    box-shadow:
+      inset 0 2px 2px rgba(255, 255, 255, 0.5),
+      inset -6px -10px 24px rgba(17, 19, 25, 0.14),
+      var(--shadow-cast-md);
+  }
+
+  .dark .world-glossy {
+    box-shadow:
+      inset 0 1px 2px rgba(255, 255, 255, 0.14),
+      inset -6px -10px 24px rgba(0, 0, 0, 0.4),
+      var(--shadow-cast-md);
+  }
+
+  .world-glass {
+    background: var(--surface-glass);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      var(--shadow-cast-sm);
+    backdrop-filter: blur(6px);
+  }
+
+  .dark .world-glass {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      var(--shadow-cast-sm);
+  }
+
+  /* Grounding contact shadow for sculptural objects — pure shadow, no surface */
+  .world-cast-shadow {
+    box-shadow: var(--shadow-cast-lg);
+  }
+
+  .world-contact-shadow {
+    box-shadow: var(--shadow-contact);
+  }
+
+  /* Scene background field — the world's ambient environment wash */
+  .world-scene-bg {
+    background-image: var(--page-gradient);
+  }
+
+  /*
+   * Scene shell default state. Scroll-reveal coordination: the
+   * PageMotion observer adds .scroll-reveal to <section> elements;
+   * scene shells opt out of that transform so 3D-stage scenes
+   * manage their own reveal (Phase 2+), while remaining visible
+   * immediately under reduced motion or if JS observers fail.
+   */
+  .world-scene-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .world-scene-shell.is-scene-revealed {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-coral {
+    color: var(--color-coral);
+  }
+}
+
+/* Dark editorial hero — override coral accent in dark mode for hero use */
+.dark {
+  --color-coral: #FA4C14;
 }

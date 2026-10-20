@@ -25,26 +25,22 @@ export interface PortfolioProject {
 
 const githubBase = siteConfig.author.github.replace(/\/$/, "");
 
-function buildEvidence(repoSlug: string): PortfolioEvidenceLink[] {
+function buildEvidence(links: PortfolioEvidenceLink[]): PortfolioEvidenceLink[] {
+  return links.map((link) => ({ ...link, external: true }));
+}
+
+function buildGitHubRepoEvidence(
+  repoSlug: string,
+  labels: Array<[label: string, path: string]>,
+): PortfolioEvidenceLink[] {
   const repoUrl = `${githubBase}/${repoSlug}`;
 
-  return [
-    {
-      label: "GitHub repo",
-      href: repoUrl,
-      external: true,
-    },
-    {
-      label: "Demo / workflow",
-      href: `${repoUrl}/blob/main/docs/demo-workflow.md`,
-      external: true,
-    },
-    {
-      label: "Sample output",
-      href: `${repoUrl}/blob/main/docs/sample-output.md`,
-      external: true,
-    },
-  ];
+  return buildEvidence(
+    labels.map(([label, path]) => ({
+      label,
+      href: path ? `${repoUrl}/blob/master/${path}` : repoUrl,
+    })),
+  );
 }
 
 export const enterpriseCaseStudies: PortfolioProject[] = [
@@ -207,67 +203,89 @@ export const enterpriseCaseStudies: PortfolioProject[] = [
 
 export const builtSystemsProjects: PortfolioProject[] = [
   {
-    id: "ai-qa-automation-platform",
-    title: "AI QA Automation Platform",
+    id: "ai-test-case-generator",
+    title: "AI Test Case Generator",
     variant: "decision-system",
-    decisionProblem: [
-      "QA decisions depended too heavily on manual interpretation, making defect intake, triage, and follow-up inconsistent across projects",
-      "Critical quality signals were fragmented across conversations and personal judgment, increasing the risk of delayed release decisions and uneven defect handling",
+    domain: "Requirement Analysis & Test Design Automation",
+    context:
+      "Open-source CLI and Web UI that turns requirements documents into structured, categorized test cases through a five-layer pipeline: Input, Analysis, Generation, Validation, Output. Built for QA work where requirement ambiguity is the main risk, so the generator stays deterministic in planning and treats the LLM as a bounded tool, never as the source of truth.",
+    problem:
+      "Manual test case design is slow, inconsistent, and drifts from requirement intent. LLM-assisted generation is faster, but unverified output invents behaviors, collapses scenarios, and loses requirement traceability. Without deterministic validation, generated cases cannot be trusted as release evidence.",
+    whatIOwned: [
+      "Five-layer pipeline architecture (input_resolver, requirement_analyzer, prompt_builder, llm_adapter, response_parser, validator, csv_exporter) with strict layer ownership",
+      "Deterministic coverage profiles (minimal, comprehensive, extra) with the invariant Minimal ⊆ Comprehensive ⊆ Extra",
+      "Scenario-level traceability through requirement_ref and scenario_ref in the 12-column traceable CSV schema",
+      "Coverage auditing with targeted backfill, bounded batch generation, and complete/partial/failed outcome semantics",
+      "UnresolvedBaselineItem contract: applicable baseline dimensions without product evidence are retained, never dropped or fabricated",
     ],
-    whatThisSystemChanged: [
-      "Turned QA handling from an ad hoc activity into a structured decision flow with consistent intake, classification, and follow-up",
-      "Created a repeatable way to convert scattered quality knowledge into reusable decision support instead of project-specific memory",
-      "Reduced ambiguity in how issues move from signal to action, especially when multiple projects compete for attention",
+    risksHandled: [
+      "LLM hallucination risk: generated steps and expected results are constrained to the supplied scenario intent by hardened provider response contracts",
+      "Traceability loss: requirement IDs and scenario references survive from source document to CSV export",
+      "False coverage confidence: partial output is reported as partial, never silently promoted to complete",
+      "Silent baseline erosion: unsupported baseline dimensions surface as explicit unresolved records instead of disappearing",
     ],
     decisionImpact: [
-      "Release decisions became more reliable because issue signals were structured earlier and carried with clearer context",
-      "Defect prioritization became safer because classification quality no longer depended entirely on manual interpretation",
-      "Operational risk was reduced by limiting knowledge loss, inconsistent triage, and fragmented QA handling across projects",
+      "Release-relevant test design becomes faster while staying anchored to verified requirement evidence",
+      "Generated cases carry traceability required for defensible QA decisions",
+      "Coverage claims remain honest because completeness is audited deterministically, not asserted by the model",
     ],
-    evidence: buildEvidence("ai-qa-automation-platform"),
-    tags: ["Decision System", "QA Operations", "Knowledge Flow", "Release Support"],
+    evidence: buildGitHubRepoEvidence("ai-test-case-generator", [
+      ["GitHub repo", ""],
+      ["README — pipeline & schema", "README.md"],
+      ["CHANGELOG — versioned evidence", "CHANGELOG.md"],
+      ["CONTRIBUTING — code standards", "CONTRIBUTING.md"],
+    ]),
+    tags: [
+      "Test Design",
+      "BYOK",
+      "Coverage Auditing",
+      "Traceability",
+      "Python",
+      "FastAPI",
+    ],
   },
   {
-    id: "telegram-qa-bug-tracker-bot",
-    title: "Telegram QA Bug Tracker Bot",
+    id: "playwright-quality-framework",
+    title: "Playwright Quality Framework",
     variant: "decision-system",
-    decisionProblem: [
-      "Defect information inside team chat was difficult to trust as a basis for action because it was unstructured, duplicated, and easy to lose",
-      "Teams lacked a dependable way to distinguish between noise, repeat reports, and issues that should influence release readiness",
+    domain: "Automation Architecture & AI Boundary Governance",
+    context:
+      "Open-source Playwright framework that turns recorded flows into architecture-compliant automation. The framework separates authoritative Playwright results from advisory-only AI triage, so the deterministic test oracle is never delegated to a model. Policy-as-code (ESLint flat config) enforces layer ownership: tests own assertions, pages own locators, fixtures own setup.",
+    problem:
+      "Automation frameworks drift: locators leak into specs, fixtures grow god-object tendencies, and AI features quietly start deciding outcomes. When a model can influence PASS/FAIL, the test stops being evidence and becomes opinion. The framework's problem is keeping the deterministic oracle and the advisory layer on opposite sides of a hard boundary.",
+    whatIOwned: [
+      "Record → Agent → Validate → Demo workflow: codegen evidence normalized into canonical ownership (tests/e2e, src/pages, src/data, src/fixtures)",
+      "Fixture gateway at src/fixtures/test.fixture.js with a 4-level escalation rule and explicit confirmation gates for Level 3/4 fixtures",
+      "Policy-as-code enforcement via ESLint flat config: specs cannot import @playwright/test directly, layer boundaries are lint errors",
+      "Advisory-only AI triage (src/ai/triage.js): Zod-validated classification of existing Playwright failure evidence, never test status",
+      "Deterministic fallbacks: missing API keys, provider failures, and malformed output degrade to INCONCLUSIVE with low confidence, never to a verdict",
     ],
-    whatThisSystemChanged: [
-      "Converted informal chat signals into structured defect records that could support traceable decision-making",
-      "Introduced a clearer boundary between casual discussion and actionable issue reporting",
-      "Reduced ambiguity in how teams capture, classify, and follow defects from initial report to tracking",
+    risksHandled: [
+      "AI boundary violation: AI must not call expect, alter expected values, skip tests, heal selectors, or modify Playwright status — failed remains failed",
+      "Oracle drift: expected business values stay inside test specs, not Page Objects, fixtures, or data modules",
+      "Anti-hallucination: the agent never invents expected text, status, database values, or business rules; missing oracle information is reported, not fabricated",
+      "Fixture over-engineering: Level escalation only when justified per level, with explicit teardown and reverse-order cleanup for Level 4",
     ],
     decisionImpact: [
-      "Release discussions became safer because issue visibility was less dependent on memory and chat history",
-      "Defect handling became more reliable by reducing duplicate reporting and missing records",
-      "Operational risk was lowered because teams could act on more consistent defect information with stronger traceability",
+      "Playwright results stay authoritative: PASS/FAIL belongs to Playwright alone, AI triage adds classification and confidence, never a verdict",
+      "INCONCLUSIVE is a triage classification, not a Playwright status — the boundary is explicit and machine-checked",
+      "Release evidence stays credible because automation defects, environment failures, and product bugs are classified without touching the oracle",
     ],
-    evidence: buildEvidence("telegram-qa-bug-tracker-bot"),
-    tags: ["Decision System", "Defect Intake", "Traceability", "Release Visibility"],
-  },
-  {
-    id: "qa-workflow-automation-engine",
-    title: "QA Workflow Automation Engine",
-    variant: "decision-system",
-    decisionProblem: [
-      "QA process control was weak because critical signals, alerts, and follow-up steps were spread across disconnected tools and manual coordination",
-      "Important validation steps could be delayed or missed, creating uncertainty around process completeness and release confidence",
+    evidence: buildGitHubRepoEvidence("playwright-quality-framework", [
+      ["GitHub repo", ""],
+      ["QUICKSTART — Record→Validate flow", "docs/QUICKSTART.md"],
+      ["AGENT_TASK_TEMPLATE — agent input contract", "docs/AGENT_TASK_TEMPLATE.md"],
+      ["AGENTS.md — architecture ownership rules", "AGENTS.md"],
+      ["AI_USAGE.md — AI boundary & fallbacks", "AI_USAGE.md"],
+    ]),
+    tags: [
+      "Playwright",
+      "Policy-as-Code",
+      "AI Boundary",
+      "Page Objects",
+      "Fixture Gateway",
+      "JavaScript",
     ],
-    whatThisSystemChanged: [
-      "Reframed QA workflow as a controlled decision system rather than a series of isolated manual tasks",
-      "Established a structured path for how QA signals move, escalate, and trigger follow-up action",
-      "Reduced dependence on individual coordination by making process flow more explicit and repeatable",
-    ],
-    decisionImpact: [
-      "Process-level decisions became faster because QA signals arrived with clearer timing and routing",
-      "Release control became safer by reducing missed steps and fragmented coordination across the QA flow",
-      "Operational risk was reduced because the system improved visibility into whether critical QA actions had actually occurred before decisions were made",
-    ],
-    evidence: buildEvidence("qa-workflow-automation-engine"),
-    tags: ["Decision System", "Process Control", "Signal Orchestration", "Execution Reliability"],
   },
 ];
 
