@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { QualityThinkingPageContent } from "@/components/portfolio/quality-thinking-page-content";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "QA Thinking System",
+  title: "QA Thinking — redirect",
   description:
-    "How quality decisions are made under ambiguity, risk, and real business impact.",
+    "The thinking map now lives on the single-page portfolio at /#thinking.",
 };
 
 export default function QualityThinkingPage() {
-  return <QualityThinkingPageContent />;
+  redirect("/#thinking");
 }

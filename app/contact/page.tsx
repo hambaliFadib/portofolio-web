@@ -1,16 +1,12 @@
-﻿import type { Metadata } from "next";
-import { ContactPageContent } from "@/components/portfolio/contact-page-content";
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Contact",
+  title: "Contact — redirect",
   description:
-    "Open for discussion, collaboration, and system or QA topics.",
+    "Contact channels now live on the single-page portfolio at /#contact.",
 };
 
 export default function ContactPage() {
-  return (
-    <div>
-      <ContactPageContent />
-    </div>
-  );
+  redirect("/#contact");
 }

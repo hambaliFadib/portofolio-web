@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { ProjectsPageContent } from "@/components/portfolio/projects-page-content";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
-  title: "Projects",
+  title: "Projects — redirect",
   description:
-    "Enterprise case studies, built QA systems, and a QA decision framework structured for risk-aware evaluation.",
+    "Selected work now lives on the single-page portfolio at /#projects.",
 };
 
 export default function ProjectsPage() {
-  return <ProjectsPageContent />;
+  redirect("/#projects");
 }

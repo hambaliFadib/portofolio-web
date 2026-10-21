@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
-import { Footer } from "@/components/layout/footer";
-import { Header } from "@/components/layout/header";
+import "@fontsource/space-grotesk/500.css";
+import "@fontsource/space-grotesk/600.css";
+import "@fontsource/space-grotesk/700.css";
+import { Header } from "@/features/navigation";
 import { PageMotion } from "@/components/layout/page-motion";
-import { LanguageProvider } from "@/components/language-provider";
-import { ClarityAIWidget } from "@/components/portfolio/clarity-ai-widget";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/features/theme";
 import { siteConfig } from "@/data/profile";
 import "./globals.css";
 
@@ -43,18 +43,14 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
         >
-          <LanguageProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <Header />
-              <PageMotion>{children}</PageMotion>
-              <Footer />
-              <ClarityAIWidget />
-            </div>
-            <Analytics />
-          </LanguageProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <Header />
+            <PageMotion>{children}</PageMotion>
+          </div>
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
