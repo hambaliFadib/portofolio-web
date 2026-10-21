@@ -153,7 +153,7 @@ try {
     check(`${to}-reverse-theme-settles-${returnTheme}`, (await snapshot(page)).theme === returnTheme, await snapshot(page));
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForFunction(value => document.documentElement.classList.contains(value), returnTheme, { timeout: 8_000 });
-    check(`${returnTheme}-theme-persists-after-refresh`, (await snapshot(page)).theme === returnTheme, await snapshot(page));
+    check(`${returnTheme}-reverse-theme-persists-after-refresh`, (await snapshot(page)).theme === returnTheme, await snapshot(page));
     await context.close();
   }
 
