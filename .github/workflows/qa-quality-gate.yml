@@ -1,0 +1,19 @@
+name: Portfolio QA Cross-Repo
+on:
+  pull_request:
+    branches: [dev]
+permissions:
+  contents: read
+concurrency:
+  group: portfolio-qa-caller-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  portfolio-quality-gate:
+    uses: hambaliFadib/playwright-portofolio-web/.github/workflows/cross-repo-quality-gate.yml@f6b7acc48c46b324e7588469d605dc7ff0748c76
+    permissions:
+      contents: read
+    with:
+      application_repository: ${{ github.repository }}
+      application_test_sha: ${{ github.sha }}
+      application_pr_head_sha: ${{ github.event.pull_request.head.sha }}
+      qa_source_sha: f6b7acc48c46b324e7588469d605dc7ff0748c76
