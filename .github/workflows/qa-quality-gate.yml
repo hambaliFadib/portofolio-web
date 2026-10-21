@@ -16,4 +16,4 @@ jobs:
       application_repository: ${{ github.repository }}
       application_test_sha: ${{ github.sha }}
       application_pr_head_sha: ${{ github.event.pull_request.head.sha }}
-      qa_source_sha: f6b7acc48c46b324e7588469d605dc7ff0748c76
+      qa_source_sha: 0000000000000000000000000000000000000000
