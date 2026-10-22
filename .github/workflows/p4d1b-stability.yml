@@ -1,0 +1,121 @@
+name: P4-D1b Same-SHA Stability Probe
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'scripts/p4d1b-stability-probe.mjs'
+      - '.github/workflows/p4d1b-stability.yml'
+permissions:
+  contents: read
+concurrency:
+  group: p4d1b-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  stability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      APP_SHA: cc9ac3b506b18137bd1aa19cd830ec0aedb44fff
+      QA_SHA: e29770616a70d6b4a7b1c5803636177fbc8c2c8b
+      B03_PREVIEW_URL: http://127.0.0.1:3000
+    steps:
+      - name: Checkout exact probe implementation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Checkout immutable application baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: hambaliFadib/portofolio-web
+          ref: ${{ env.APP_SHA }}
+          path: baseline-app
+          persist-credentials: false
+      - name: Checkout immutable QA baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: hambaliFadib/playwright-portofolio-web
+          ref: ${{ env.QA_SHA }}
+          path: baseline-qa
+          persist-credentials: false
+      - name: Verify immutable revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C baseline-app rev-parse HEAD)" = "$APP_SHA"
+          test "$(git -C baseline-qa rev-parse HEAD)" = "$QA_SHA"
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Install isolated locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd baseline-app && npm ci --no-audit --no-fund)
+          (cd baseline-qa && npm ci --no-audit --no-fund)
+      - name: Install Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd baseline-app
+          npx playwright install --with-deps chromium
+      - name: Build immutable application
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd baseline-app
+          npm run build
+      - name: Prepare isolated evidence and launch application server
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p4d1b-stability"
+          cd baseline-app
+          ./node_modules/.bin/next start -H 127.0.0.1 -p 3000 > "$RUNNER_TEMP/p4d1b-stability/server.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/p4d1b-stability/next.pid"
+      - name: Require healthy application server
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..50}; do
+            if curl -fsS http://127.0.0.1:3000/ -o /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/p4d1b-stability/server.log"
+          exit 1
+      - name: Verify observability snapshot negative test
+        run: node baseline-app/design-preview/paper-reveal-b03/reliability-observer.test.mjs
+      - name: Run ten sequential no-retry stability iterations
+        env:
+          PORTFOLIO_APP_ROOT: ${{ github.workspace }}/baseline-app
+          PORTFOLIO_QA_ROOT: ${{ github.workspace }}/baseline-qa
+          P4D1B_OUTPUT_DIR: ${{ runner.temp }}/p4d1b-stability
+          P4D1B_APP_SHA: ${{ env.APP_SHA }}
+          P4D1B_QA_SHA: ${{ env.QA_SHA }}
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/baseline-app/node_modules/playwright-core/.local-browsers
+        run: node scripts/p4d1b-stability-probe.mjs
+      - name: Stop only the owned application server
+        if: always()
+        shell: bash
+        run: |
+          pid_file="$RUNNER_TEMP/p4d1b-stability/next.pid"
+          if [[ -f "$pid_file" ]]; then
+            pid="$(cat "$pid_file")"
+            if kill -0 "$pid" 2>/dev/null; then
+              command_line="$(ps -p "$pid" -o args= || true)"
+              case "$command_line" in
+                *node_modules/.bin/next*|*next/dist/bin/next*) kill -TERM "$pid" ;;
+                *) echo "Unexpected PID ownership; not stopping $pid" ;;
+              esac
+            fi
+          fi
+      - name: Upload iteration reports and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: p4d1b-same-sha-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/p4d1b-stability/
+          if-no-files-found: warn
+          retention-days: 14
