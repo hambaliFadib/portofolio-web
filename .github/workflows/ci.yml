@@ -248,6 +248,14 @@ jobs:
           console.log('B03 report: ' + passed + ' passed, ' + failed + ' failed; unique names verified.');
           console.log('Four required nonempty PNG frame captures verified.');
           NODE
+      - name: Upload B03 reliability and frame evidence
+        if: always() && steps.evidence_dir.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portfolio-ci-b03-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.evidence_dir.outputs.path }}/b03/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify homepage evidence contract negative fixtures
         id: homepage_contract
         if: steps.profile.outputs.profile == 'modular'
