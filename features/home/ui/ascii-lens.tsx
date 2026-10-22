@@ -87,8 +87,8 @@ export function AsciiLens({
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       setLensPos({
-        x: Math.max(0, Math.min(width, x)),
-        y: Math.max(0, Math.min(height, y)),
+        x: Math.max(0, Math.min(rect.width, x)),
+        y: Math.max(0, Math.min(rect.height, y)),
       });
     });
   };
@@ -128,8 +128,11 @@ export function AsciiLens({
     // --- coordinate-space conversion ---
     // lensPos is in *displayed-image* pixel space (matches width×height props).
     // drawImage(sourceRect) must be in the *intrinsic* image coordinate space.
-    const scaleX = img.naturalWidth / width;
-    const scaleY = img.naturalHeight / height;
+    const renderedWidth = img.getBoundingClientRect().width;
+    const renderedHeight = img.getBoundingClientRect().height;
+    if (!renderedWidth || !renderedHeight) return;
+    const scaleX = img.naturalWidth / renderedWidth;
+    const scaleY = img.naturalHeight / renderedHeight;
 
     // Source crop in intrinsic-image coordinates, centered on pointer.
     // srcCropRadius_intrinsic = (LENS_RADIUS / ZOOM_FACTOR) * scale
@@ -145,8 +148,8 @@ export function AsciiLens({
     const srcH = Math.min(img.naturalHeight - srcTop, srcCropRadiusY * 2);
 
     // Destination: fill the lens disc, centering if edge-clamped.
-    const dstW = srcW * (width / img.naturalWidth) * ZOOM_FACTOR;
-    const dstH = srcH * (height / img.naturalHeight) * ZOOM_FACTOR;
+    const dstW = srcW * (renderedWidth / img.naturalWidth) * ZOOM_FACTOR;
+    const dstH = srcH * (renderedHeight / img.naturalHeight) * ZOOM_FACTOR;
     const dstX = (LENS_DIAMETER - dstW) / 2;
     const dstY = (LENS_DIAMETER - dstH) / 2;
 
@@ -235,7 +238,7 @@ export function AsciiLens({
         ref={containerRef}
         data-ascii-lens
         className={`relative overflow-hidden rounded-xl ${className}`}
-        style={{ width, height }}
+        style={{ width: "100%", maxWidth: width, aspectRatio: `${width} / ${height}` }}
       >
         <img
           ref={imgRef}
@@ -255,7 +258,7 @@ export function AsciiLens({
       ref={containerRef}
       data-ascii-lens
       className={`relative overflow-hidden rounded-xl ${className}`}
-      style={{ width, height }}
+      style={{ width: "100%", maxWidth: width, aspectRatio: `${width} / ${height}` }}
       onPointerMove={handlePointerMove}
       onPointerEnter={handleEnter}
       onPointerLeave={handleLeave}
