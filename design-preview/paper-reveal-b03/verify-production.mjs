@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { createReliabilityObserver } from './reliability-observer.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,9 @@ await fs.mkdir(frames, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const checks = [];
 const diagnostics = [];
+const reliability = createReliabilityObserver({ suite: 'b03', origin });
+let lastPage = null;
+
 
 function check(name, passed, details = {}) {
   checks.push({ name, passed: Boolean(passed), details });
@@ -36,17 +40,19 @@ async function pageFor({
     isMobile: touch,
   });
   const page = await context.newPage();
+  lastPage = page;
+  reliability.observe(page, `${width}x${height}-${theme}`);
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') pageErrors.push(message.text()); });
   await page.addInitScript(value => {
     if (!localStorage.getItem('theme')) localStorage.setItem('theme', value);
   }, theme);
-  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await reliability.measure('navigation-domcontentloaded', page, () => page.goto(origin, { waitUntil: 'domcontentloaded' }));
   await page.waitForFunction(value => document.documentElement.classList.contains(value), theme, { timeout: 20_000 });
   await page.locator('button[data-theme-toggle]').waitFor({ state: 'visible', timeout: 20_000 });
   await page.waitForFunction(() => document.querySelector('button[data-theme-toggle]')?.getAttribute('aria-label')?.startsWith('Switch to'));
-  await page.waitForTimeout(500);
+  await reliability.measure('post-hydration-observation-window', page, () => page.waitForTimeout(500));
   const hydrationMessages = pageErrors.filter(message => message.includes('A tree hydrated but some attributes'));
   diagnostics.push({
     viewport: `${width}x${height}`,
@@ -78,16 +84,16 @@ async function snapshot(page) {
 
 async function capture(page, label) {
   const filepath = path.join(frames, `${label}.png`);
-  await page.locator('button[data-theme-toggle]').screenshot({ path: filepath, animations: 'disabled' });
+  await reliability.measure('capture-'+label, page, () => page.locator('button[data-theme-toggle]').screenshot({ path: filepath, animations: 'disabled' }));
   return filepath;
 }
 
 async function waitForSettled(page, theme) {
-  await page.waitForFunction(value => {
+  await reliability.measure('theme-settles-'+theme, page, () => page.waitForFunction(value => {
     const svg = document.querySelector('svg[data-art="actual"]');
     const dark = document.documentElement.classList.contains('dark');
     return (dark ? 'dark' : 'light') === value && svg?.dataset.state === 'idle' && Number(svg.dataset.progress) === 0;
-  }, theme, { timeout: 8_000 });
+  }, theme, { timeout: 8_000 }));
 }
 
 try {
