@@ -258,6 +258,11 @@ try {
   await fs.writeFile(path.join(output, 'production-verification.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ counts: report.counts, failed: checks.filter(item => !item.passed), diagnostics, mobileLayouts, output }, null, 2));
   if (checks.some(item => !item.passed)) process.exitCode = 1;
+ } catch (error) {
+  console.error('B03 regression interrupted:', error?.message);
+  process.exitCode = 1;
+  throw error;
 } finally {
-  await browser.close();
+  try { await reliability.write(path.join(output, 'reliability-observation.json')); }
+  finally { await browser.close(); }
 }
