@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { createReliabilityObserver } from './reliability-observer.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,9 @@ await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const checks = [];
 const diagnostics = [];
+const reliability = createReliabilityObserver({ suite: 'homepage', origin });
+let lastPage = null;
+
 function check(name, passed, details = {}) { checks.push({ name, passed: Boolean(passed), details }); }
 
 try {
@@ -25,6 +29,8 @@ try {
       hasTouch: viewport.name === 'mobile', isMobile: viewport.name === 'mobile',
     });
     const page = await context.newPage();
+    lastPage = page;
+    reliability.observe(page, viewport.name);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
@@ -32,7 +38,7 @@ try {
       if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
       localStorage.setItem('portfolio-locale', 'id');
     });
-    await page.goto(origin, { waitUntil: 'domcontentloaded' });
+    await reliability.measure(viewport.name+'-navigation', page, () => page.goto(origin, { waitUntil: 'domcontentloaded' }));
     await page.waitForSelector('section#top');
     const hero = page.locator('section#top');
     const languageState = await page.evaluate(() => ({
@@ -54,7 +60,7 @@ try {
     const heading = hero.getByRole('heading', { level: 1 }).first();
     const cta = hero.locator('a[href="#qa-motion"]').first();
     const image = hero.locator('img[alt="Hambali Fadib"]').first();
-    await image.waitFor({ state: 'visible' });
+    await reliability.measure(viewport.name+'-portrait-visible', page, () => image.waitFor({ state: 'visible' }));
     await page.waitForFunction(() => {
       const img = document.querySelector('section#top img[alt="Hambali Fadib"]');
       return img?.complete && img.naturalWidth > 0;
@@ -91,7 +97,7 @@ try {
     const box = await image.boundingBox();
     await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.46);
     const canvas = page.locator('[data-ascii-lens] canvas');
-    await canvas.waitFor({ state: 'visible', timeout: 3_000 });
+    await reliability.measure(viewport.name+'-ascii-canvas-visible', page, () => canvas.waitFor({ state: 'visible', timeout: 3_000 }));
     const first = await canvas.evaluate(element => {
       const pixels = element.getContext('2d').getImageData(0, 0, element.width, element.height).data;
       let alphaPixels = 0; let colorVariety = new Set();
@@ -104,7 +110,7 @@ try {
     await page.mouse.move(box.x + box.width * 0.69, box.y + box.height * 0.58);
     await page.waitForFunction(previous => document.querySelector('[data-ascii-lens] canvas')?.toDataURL() !== previous, first.dataUrl, { timeout: 3_000 });
     const moved = await canvas.evaluate(element => ({ width: element.width, height: element.height, dataUrl: element.toDataURL() }));
-    await page.screenshot({ path: path.join(output, `${viewport.name}-ascii-lens-hover.png`), animations: 'disabled' });
+    await reliability.measure(viewport.name+'-ascii-screenshot', page, () => page.screenshot({ path: path.join(output, `${viewport.name}-ascii-lens-hover.png`), animations: 'disabled' }));
     check(`${viewport.name}-ascii-lens-zooms-and-follows-pointer`, first.width === 180 && first.height === 180 && first.alphaPixels > 10_000 && first.colorVariety > 10 && moved.dataUrl !== first.dataUrl, { initial: { width: first.width, height: first.height, alphaPixels: first.alphaPixels, colorVariety: first.colorVariety }, changedAfterPointerMove: moved.dataUrl !== first.dataUrl });
     await page.mouse.move(10, 100);
     await page.waitForFunction(() => !document.querySelector('[data-ascii-lens] canvas'));
@@ -120,4 +126,11 @@ try {
   console.log(JSON.stringify({ counts: report.counts, failed: missing, diagnostics, output: path.join(output, 'repository-regression.json') }, null, 2));
   // Every homepage assertion is authoritative; no special exemption for missing anchors.
   if (checks.length !== 14 || missing.length !== 0) process.exitCode = 1;
-} finally { await browser.close(); }
+ } catch (error) {
+  console.error('homepage regression interrupted:', error?.message);
+  process.exitCode = 1;
+  throw error;
+} finally {
+  try { await reliability.write(path.join(output, 'reliability-observation.json')); }
+  finally { await browser.close(); }
+}
