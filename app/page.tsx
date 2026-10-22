@@ -22,5 +22,10 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return <DarkEditorialHero />;
+  return (
+    <>
+      <DarkEditorialHero />
+      <HomepageSections />
+    </>
+  );
 }
