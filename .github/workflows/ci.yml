@@ -176,6 +176,10 @@ jobs:
             throw new Error('Production server health check timed out: ' + lastError);
           })().catch((error) => { console.error(error); process.exitCode = 1; });
           NODE
+      - name: Verify bounded failure-snapshot contract
+        id: reliability_selftest
+        if: steps.profile.outputs.profile == 'modular'
+        run: node design-preview/paper-reveal-b03/reliability-observer.test.mjs
       - name: Run established B03 Theme Reveal production checks
         id: b03
         if: steps.profile.outputs.profile == 'modular'
