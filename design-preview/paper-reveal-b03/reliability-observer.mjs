@@ -4,6 +4,8 @@ import { performance } from 'node:perf_hooks';
 
 const MAX_EVENTS = 80;
 const MAX_TIMINGS = 160;
+// Diagnostics must not extend a failed verifier indefinitely if Chromium stops responding.
+const FAILURE_SNAPSHOT_TIMEOUT_MS = 1_500;
 
 function safeMessage(value) {
   return String(value ?? 'unknown')
@@ -59,8 +61,12 @@ export function createReliabilityObserver({ suite, origin }) {
 
   async function stateOf(page) {
     if (!page || page.isClosed()) return { state: 'page-closed' };
+    let deadline;
     try {
-      return await page.evaluate(() => {
+      // A Node-side deadline is required: Playwright page.evaluate() can hang while
+      // the renderer is unresponsive. Never let diagnostic capture mask the failure.
+      return await Promise.race([
+        page.evaluate(() => {
         const theme = document.documentElement.classList.contains('dark') ? 'dark'
           : document.documentElement.classList.contains('light') ? 'light' : 'unset';
         const svg = document.querySelector('svg[data-art="actual"]');
@@ -73,9 +79,15 @@ export function createReliabilityObserver({ suite, origin }) {
           lensCanvasPresent: Boolean(canvas),
           viewport: { width: innerWidth, height: innerHeight },
         };
-      });
+        }),
+        new Promise(resolve => {
+          deadline = setTimeout(() => resolve({ state: 'snapshot-unavailable' }), FAILURE_SNAPSHOT_TIMEOUT_MS);
+        }),
+      ]);
     } catch {
       return { state: 'snapshot-unavailable' };
+    } finally {
+      clearTimeout(deadline);
     }
   }
 
