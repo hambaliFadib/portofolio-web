@@ -118,5 +118,6 @@ try {
   const report = { generatedAt: new Date().toISOString(), origin, browser: 'Playwright Chromium', checks, diagnostics, counts: { passed: checks.filter(item => item.passed).length, failed: missing.length }, note: 'Missing anchor targets reflect the current source shape: app/page.tsx renders DarkEditorialHero, which only defines #top. No route or navigation source was changed by repository cleanup.' };
   await fs.writeFile(path.join(output, 'repository-regression.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ counts: report.counts, failed: missing, diagnostics, output: path.join(output, 'repository-regression.json') }, null, 2));
-  if (missing.some(item => !item.name.includes('anchor-targets-exist'))) process.exitCode = 1;
+  // Every homepage assertion is authoritative; no special exemption for missing anchors.
+  if (checks.length !== 14 || missing.length !== 0) process.exitCode = 1;
 } finally { await browser.close(); }
