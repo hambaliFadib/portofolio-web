@@ -1,0 +1,73 @@
+name: P4-B Homepage Baseline Probe (Temporary)
+on:
+  pull_request:
+    branches: [dev]
+permissions:
+  contents: read
+concurrency:
+  group: p4b-homepage-probe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  homepage_probe:
+    name: homepage-regression-diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact PR test revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build exact PR application
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start owned loopback production server
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/p4b-homepage"
+          ./node_modules/.bin/next start --hostname 127.0.0.1 --port 3000 > "$RUNNER_TEMP/p4b-homepage/next-start.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/p4b-homepage/server.pid"
+          curl --retry 35 --retry-connrefused --retry-delay 1 --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+      - name: Run existing homepage regression baseline
+        env:
+          B03_PREVIEW_URL: http://127.0.0.1:3000
+          B03_HOMEPAGE_OUTPUT_DIR: ${{ runner.temp }}/p4b-homepage
+        run: node design-preview/paper-reveal-b03/verify-cleanup-regression.mjs
+      - name: Require zero failing homepage checks independently
+        if: always()
+        env:
+          EVIDENCE_PATH: ${{ runner.temp }}/p4b-homepage/repository-regression.json
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync(process.env.EVIDENCE_PATH, 'utf8'));
+          const passed = report.checks.filter(x => x.passed === true);
+          const failed = report.checks.filter(x => x.passed === false);
+          console.log(JSON.stringify({runId: process.env.GITHUB_RUN_ID, passed: passed.length, failed: failed.length, failedNames: failed.map(x => x.name), counts: report.counts}, null, 2));
+          if (!Array.isArray(report.checks) || report.checks.length !== 14) throw new Error('Expected exactly 14 homepage checks');
+          if (failed.length || report.counts.failed !== 0 || report.counts.passed !== 14) process.exitCode = 1;
+          NODE
+      - name: Stop only owned server
+        if: always()
+        run: |
+          if test -f "$RUNNER_TEMP/p4b-homepage/server.pid"; then
+            pid="$(cat "$RUNNER_TEMP/p4b-homepage/server.pid")"
+            cmd="$(ps -p "$pid" -o args= || true)"
+            if [[ "$cmd" == *next* ]]; then kill "$pid" || true; fi
+          fi
+      - name: Upload baseline report and screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: p4b-homepage-baseline-${{ github.run_id }}
+          path: ${{ runner.temp }}/p4b-homepage/
+          if-no-files-found: warn
+          retention-days: 14
