@@ -248,6 +248,30 @@ jobs:
           console.log('B03 report: ' + passed + ' passed, ' + failed + ' failed; unique names verified.');
           console.log('Four required nonempty PNG frame captures verified.');
           NODE
+      - name: Verify homepage evidence contract negative fixtures
+        id: homepage_contract
+        if: steps.profile.outputs.profile == 'modular'
+        run: node scripts/verify-homepage-regression.test.mjs
+      - name: Run homepage regression against exact production build
+        id: homepage
+        if: steps.profile.outputs.profile == 'modular'
+        env:
+          B03_HOMEPAGE_OUTPUT_DIR: ${{ steps.evidence_dir.outputs.path }}/homepage
+        run: node design-preview/paper-reveal-b03/verify-cleanup-regression.mjs
+      - name: Require fourteen verified homepage checks
+        id: homepage_evidence
+        if: steps.profile.outputs.profile == 'modular'
+        env:
+          REPORT: ${{ steps.evidence_dir.outputs.path }}/homepage/repository-regression.json
+        run: node scripts/verify-homepage-regression.mjs "$REPORT"
+      - name: Upload homepage regression evidence
+        if: always() && steps.evidence_dir.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: portfolio-ci-homepage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.evidence_dir.outputs.path }}/homepage/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Stop only the owned production server
         if: always() && steps.profile.outputs.profile == 'modular'
         shell: bash
@@ -291,6 +315,9 @@ jobs:
           HEALTH: ${{ steps.health.outcome }}
           B03: ${{ steps.b03.outcome }}
           B03_EVIDENCE: ${{ steps.b03_evidence.outcome }}
+          HOMEPAGE_CONTRACT: ${{ steps.homepage_contract.outcome }}
+          HOMEPAGE: ${{ steps.homepage.outcome }}
+          HOMEPAGE_EVIDENCE: ${{ steps.homepage_evidence.outcome }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -313,7 +340,9 @@ jobs:
             ['Production-server health', status('HEALTH', profile !== 'legacy')],
             ['B03 production verifier', status('B03', profile !== 'legacy')],
             ['B03 report and frames', status('B03_EVIDENCE', profile !== 'legacy')],
-            ['Homepage regression', 'NOT RUN — separate from B03; three known baseline failures remain'],
+            ['Homepage regression contract', status('HOMEPAGE_CONTRACT', profile !== 'legacy')],
+            ['Homepage regression execution (14 checks)', status('HOMEPAGE', profile !== 'legacy')],
+            ['Homepage regression evidence (14/14)', status('HOMEPAGE_EVIDENCE', profile !== 'legacy')],
             ['Additional deterministic tests', profile === 'legacy' ? 'NOT APPLICABLE — no deterministic test runner declared' : profile === 'modular' ? 'No separate unit-test script declared' : 'NOT DETERMINED — profile classification failed'],
           ];
           let summary = '# Portfolio CI\n\n- Source profile: **' + profile + '**\n- Runtime: Node.js 22 on ubuntu-latest\n\n| Check | Result |\n|---|---|\n';
