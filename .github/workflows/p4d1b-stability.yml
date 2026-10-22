@@ -94,7 +94,6 @@ jobs:
           P4D1B_OUTPUT_DIR: ${{ runner.temp }}/p4d1b-stability
           P4D1B_APP_SHA: ${{ env.APP_SHA }}
           P4D1B_QA_SHA: ${{ env.QA_SHA }}
-          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/baseline-app/node_modules/playwright-core/.local-browsers
         run: node scripts/p4d1b-stability-probe.mjs
       - name: Stop only the owned application server
         if: always()
