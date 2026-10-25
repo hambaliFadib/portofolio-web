@@ -59,8 +59,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd baseline-app
-          npx playwright install --with-deps chromium
+          cd baseline-app && npx playwright install --with-deps chromium
+          cd baseline-qa && npx playwright install chromium
       - name: Build immutable application
         shell: bash
         run: |
