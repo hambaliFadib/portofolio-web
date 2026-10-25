@@ -76,15 +76,27 @@ function verify(label, fn) {
   try { return { passed: true, value: fn(), error: null }; }
   catch(e) { console.error(label + ': ' + e.message); return { passed: false, value: null, error: e.message }; }
 }
+function validStage(stage, suite) {
+  if (!stage || stage.passed !== true || stage.exitCode !== 0 || stage.signal !== null ||
+      !Number.isSafeInteger(stage.durationMs) || stage.durationMs < 0) return false;
+  if (suite === 'qa') return stage.strictGatePassed === true;
+  if (suite === 'homepage' && stage.strictGatePassed !== true) return false;
+  return Number.isSafeInteger(stage.evidence?.timings) && stage.evidence.timings > 0 &&
+    Number.isSafeInteger(stage.evidence.browserEvents) && stage.evidence.browserEvents >= 0;
+}
 export function summarize(iterations, meta) {
+  const rows = Array.isArray(iterations) ? iterations : [];
+  const ordered = Array.isArray(iterations) && rows.length === ITERATIONS &&
+    rows.every((item, index) => item && item.iteration === index + 1 &&
+      item.stages && typeof item.stages === 'object' && !Array.isArray(item.stages));
   const totals = Object.fromEntries(Object.keys(EXPECTED).map(name =>
-    [name, iterations.filter(x => x.stages[name]?.passed).length]));
-  const passed = iterations.length === ITERATIONS && Object.values(totals).every(x => x === ITERATIONS);
+    [name, rows.filter(x => validStage(x?.stages?.[name], name)).length]));
+  const passed = ordered && Object.values(totals).every(x => x === ITERATIONS);
   return {
     schemaVersion: 1, kind: 'portfolio-same-sha-stability-probe',
-    ...meta, expectedIterations: ITERATIONS, completedIterations: iterations.length,
+    ...meta, expectedIterations: ITERATIONS, completedIterations: rows.length,
     expectedChecksPerIteration: EXPECTED, observedPassingIterations: totals,
-    expectedTotalChecks: ITERATIONS * 52, passed,
+    expectedTotalChecks: ITERATIONS * Object.values(EXPECTED).reduce((sum, count) => sum + count, 0), passed,
     classification: passed ? 'NO_FAILURE_OBSERVED_IN_SAMPLE' : 'FAIL_OR_INCOMPLETE',
     note: 'Ten sequential runs against identical app and QA commits; no retries. Not statistical proof of zero flakiness.',
     iterations,
