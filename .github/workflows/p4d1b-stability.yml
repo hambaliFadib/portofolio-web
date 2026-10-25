@@ -4,6 +4,7 @@ on:
     branches: [dev]
     paths:
       - 'scripts/p4d1b-stability-probe.mjs'
+      - 'scripts/p4d1c-stability-summary.test.mjs'
       - '.github/workflows/p4d1b-stability.yml'
 permissions:
   contents: read
@@ -85,8 +86,10 @@ jobs:
           done
           cat "$RUNNER_TEMP/p4d1b-stability/server.log"
           exit 1
-      - name: Verify observability snapshot negative test
-        run: node baseline-app/design-preview/paper-reveal-b03/reliability-observer.test.mjs
+      - name: Verify observability and stability summary negative tests
+        run: |
+          node baseline-app/design-preview/paper-reveal-b03/reliability-observer.test.mjs
+          node scripts/p4d1c-stability-summary.test.mjs
       - name: Run ten sequential no-retry stability iterations
         env:
           PORTFOLIO_APP_ROOT: ${{ github.workspace }}/baseline-app
