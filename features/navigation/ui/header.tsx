@@ -71,7 +71,7 @@ const CONTACT_ID = "contact";
 const SPY_ROOT_MARGIN = "-20% 0px -30% 0px";
 
 export function Header() {
-  const { persona, switchPersona } = useIdentity();
+  const { persona, switchPersona, transitioning } = useIdentity();
   const visibleNavItems = persona === "qa" ? NAV_ITEMS : NAV_ITEMS.slice(0, 1);
   const [activeSection, setActiveSection] = useState<NavId | "contact">("top");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -205,19 +205,19 @@ export function Header() {
         aria-label="Primary"
       >
         {/* Left — identity */}
-        <Link
-          href="#top"
-          aria-label="Hambali Fadib — back to top"
-          aria-description={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"} and return to Home.`}
-          title={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"} and return to Home`}
+        <button
+          type="button"
+          aria-label={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
+          title={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
+          disabled={transitioning}
           className="group flex min-w-0 cursor-pointer flex-col items-start rounded-md bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={(event) => { event.preventDefault(); switchPersona(); }}
+          onClick={switchPersona}
         >
           <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
           <span className="mt-1 hidden font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80 sm:block">
             {persona === "qa" ? "QA ENGINEER" : "FULL STACK ENGINEER"}
           </span>
-        </Link>
+        </button>
 
         {/* Center — primary navigation */}
         <ul className="hidden items-center gap-8 lg:flex">
