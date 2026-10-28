@@ -10,8 +10,8 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { useIdentity } from "@/components/identity/identity-provider";
 
 type Theme = "dark" | "light";
 type MotionState = "idle" | "hover-preview" | "opening" | "theme-reveal" | "settling";
@@ -27,33 +27,33 @@ interface Point {
 }
 
 const DARK_PAPER = {
-  front: "#28303d",
-  edge: "#596477",
-  back: "#596477",
-  backShadow: "#3d4655",
-  backLight: "#707b8d",
-  crease: "#18202b",
-  shadowInk: "#080b10",
-  highlight: "#a0a9b8",
-  icon: "#f0eee8",
-  destination: "#28303d",
-  destinationEdge: "#69768a",
-  destinationIcon: "#f0eee8",
+  front: "var(--identity-paper-dark)",
+  edge: "var(--identity-paper-dark-edge)",
+  back: "var(--identity-paper-dark-surface)",
+  backShadow: "color-mix(in srgb, var(--foreground) 17%, var(--background))",
+  backLight: "color-mix(in srgb, var(--secondary) 60%, var(--background))",
+  crease: "color-mix(in srgb, var(--foreground) 30%, var(--background))",
+  shadowInk: "color-mix(in srgb, var(--foreground) 20%, transparent)",
+  highlight: "color-mix(in srgb, var(--background) 90%, var(--foreground))",
+  icon: "var(--identity-paper-dark-ink)",
+  destination: "var(--identity-paper-dark)",
+  destinationEdge: "var(--identity-paper-dark-edge)",
+  destinationIcon: "var(--identity-paper-dark-ink)",
 };
 
 const LIGHT_PAPER = {
-  front: "#f7f5ef",
-  edge: "#c8c3b7",
-  back: "#d6d1c6",
-  backShadow: "#bdb8ad",
-  backLight: "#e8e4da",
-  crease: "#817b70",
-  shadowInk: "#625c52",
-  highlight: "#fffdf7",
-  icon: "#20232b",
-  destination: "#f4f1e9",
-  destinationEdge: "#c9c4b8",
-  destinationIcon: "#20232b",
+  front: "var(--identity-paper-light)",
+  edge: "var(--identity-paper-light-edge)",
+  back: "var(--identity-paper-light-surface)",
+  backShadow: "color-mix(in srgb, var(--foreground) 17%, var(--background))",
+  backLight: "color-mix(in srgb, var(--secondary) 60%, var(--background))",
+  crease: "color-mix(in srgb, var(--foreground) 30%, var(--background))",
+  shadowInk: "color-mix(in srgb, var(--foreground) 20%, transparent)",
+  highlight: "color-mix(in srgb, var(--background) 90%, var(--foreground))",
+  icon: "var(--identity-paper-light-ink)",
+  destination: "var(--identity-paper-light)",
+  destinationEdge: "var(--identity-paper-light-edge)",
+  destinationIcon: "var(--identity-paper-light-ink)",
 };
 
 const REVEAL_AT = 0.62;
@@ -123,13 +123,13 @@ function iconMarkup(
 }
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { appearance, setAppearance, transitioning } = useIdentity();
   const mounted = useSyncExternalStore(
     subscribeToClientReady,
     getClientReadySnapshot,
     getServerReadySnapshot,
   );
-  const initialScene: Scene = { from: "dark", to: "light" };
+  const initialScene: Scene = { from: appearance, to: opposite(appearance) };
   const [scene, setSceneState] = useState<Scene>(initialScene);
   const reactId = useId().replaceAll(":", "");
   const clipId = `themeToggleFrontClip${reactId}`;
@@ -139,7 +139,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const mountedRef = useRef(false);
   const sceneRef = useRef<Scene>(initialScene);
-  const themeRef = useRef<Theme>("dark");
+  const themeRef = useRef<Theme>(appearance);
   const progressRef = useRef(0);
   const motionStateRef = useRef<MotionState>("idle");
   const reducedMotionRef = useRef(false);
@@ -152,9 +152,9 @@ export function ThemeToggle({ className }: { className?: string }) {
   const operationRef = useRef(0);
   const transitionOwnedRef = useRef(false);
 
-  const currentTheme: Theme = resolvedTheme === "light" ? "light" : "dark";
+  const currentTheme: Theme = appearance;
   const nextTheme = opposite(currentTheme);
-  const label = mounted ? `Switch to ${nextTheme} mode` : "Toggle color mode";
+  const label = `Switch to ${nextTheme} mode`;
 
   function updateScene(next: Scene) {
     sceneRef.current = next;
@@ -182,7 +182,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     root.dataset.themeTarget = theme;
     root.classList.add("theme-transitioning");
     transitionOwnedRef.current = true;
-    setTheme(theme);
+    setAppearance(theme);
   }
 
   function updateProgress(progress: number) {
@@ -444,7 +444,7 @@ export function ThemeToggle({ className }: { className?: string }) {
 
     const targetTheme = sceneRef.current.to;
     if (reducedMotionRef.current) {
-      setTheme(targetTheme);
+      setAppearance(targetTheme);
       resetToTheme(targetTheme);
       return;
     }
@@ -598,6 +598,7 @@ export function ThemeToggle({ className }: { className?: string }) {
 
       <button
         type="button"
+        disabled={transitioning}
         data-theme-toggle
         aria-label={label}
         title={label}
@@ -605,7 +606,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         onPointerLeave={handlePointerLeave}
         onClick={() => void open()}
         className={cn(
-          "absolute inset-0 z-[3] h-full w-full cursor-pointer touch-manipulation rounded-[4px] border-0 bg-transparent p-0 text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-[3px] focus-visible:ring-offset-background",
+          "theme-toggle-control absolute inset-0 z-[1] h-full w-full cursor-pointer touch-manipulation rounded-[12px] border border-border bg-background p-0 text-transparent transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:transition-none",
         )}
       >
         <span className="sr-only">{label}</span>

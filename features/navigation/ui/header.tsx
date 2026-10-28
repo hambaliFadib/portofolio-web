@@ -7,8 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/features/theme";
+import { useIdentity } from "@/components/identity/identity-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,10 +71,14 @@ const CONTACT_ID = "contact";
 const SPY_ROOT_MARGIN = "-20% 0px -30% 0px";
 
 export function Header() {
+  const { persona, switchPersona, transitioning } = useIdentity();
+  const visibleNavItems = persona === "qa" ? NAV_ITEMS : NAV_ITEMS.slice(0, 1);
   const [activeSection, setActiveSection] = useState<NavId | "contact">("top");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const portalRoot = typeof document === "undefined" ? null : document.getElementById("portfolio-identity");
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null);
+
   const observerReportedSectionRef = useRef(false);
   // ── Scroll-spy ─────────────────────────────────────────────
   // IntersectionObserver over the detection band. When adjacent
@@ -199,26 +205,22 @@ export function Header() {
         aria-label="Primary"
       >
         {/* Left — identity */}
-        <Link
-          href="#top"
-          aria-label="Hambali Fadib — back to top"
-          aria-current={activeSection === "top" ? "true" : undefined}
-          className="group flex min-w-0 items-center gap-3 rounded-md text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={handleMenuNavigate}
+        <button
+          type="button"
+          disabled={transitioning}
+          aria-label={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
+          className="group flex min-w-0 cursor-pointer flex-col items-start rounded-md bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={switchPersona}
         >
-          <span className="flex min-w-0 flex-col leading-none">
-            <span className="truncate text-[15px] font-semibold tracking-tight">
-              Hambali Fadib
-            </span>
-            <span className="mt-1 hidden font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80 sm:block">
-              QA ENGINEER
-            </span>
+          <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
+          <span className="mt-1 hidden font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80 sm:block">
+            {persona === "qa" ? "QA ENGINEER" : "FULL STACK ENGINEER"}
           </span>
-        </Link>
+        </button>
 
         {/* Center — primary navigation */}
         <ul className="hidden items-center gap-8 lg:flex">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <li key={item.id}>
               <Link
                 href={`#${item.id}`}
@@ -249,14 +251,14 @@ export function Header() {
         {/* Right — utility controls: subtle theme toggle +
             single solid contact CTA */}
         <div className="flex items-center gap-3">
-          <ThemeToggle className="h-9 w-9" />
-          <Link
+          <ThemeToggle className="h-11 w-11" />
+          {persona === "qa" && <Link
             href="#contact"
             aria-current={activeSection === CONTACT_ID ? "true" : undefined}
             className="hidden h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:inline-flex"
           >
             Get in Touch
-          </Link>
+          </Link>}
           {/* Mobile menu toggle */}
           <button
             ref={menuToggleRef}
@@ -277,7 +279,7 @@ export function Header() {
       </nav>
 
       {/* Mobile menu — primary destinations + contact */}
-      {mobileMenuOpen && (
+      {mobileMenuOpen && portalRoot && createPortal((
         <div
           id="primary-mobile-menu"
           role="dialog"
@@ -290,7 +292,7 @@ export function Header() {
         >
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-1 px-6 py-6">
             <ul className="flex flex-col">
-              {NAV_ITEMS.map((item, index) => (
+              {visibleNavItems.map((item, index) => (
                 <li key={item.id}>
                   <Link
                     href={`#${item.id}`}
@@ -319,17 +321,17 @@ export function Header() {
               ))}
             </ul>
 
-            <Link
+            {persona === "qa" && <Link
               href="#contact"
               aria-current={activeSection === CONTACT_ID ? "true" : undefined}
               className="mt-6 flex min-h-[52px] items-center justify-center rounded-md bg-foreground px-4 text-base font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={handleMenuNavigate}
             >
               Get in Touch
-            </Link>
+            </Link>}
           </div>
         </div>
-      )}
+      ), portalRoot)}
     </header>
   );
 }

@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { DarkEditorialHero, HomepageSections } from "@/features/home";
+import { PersonaHomepage } from "@/features/home";
 
 /**
- * Single-page static portfolio — dark editorial hero (HERO-ASCII-01).
- *
- * Fully static: content from local data files. No CMS,
- * no content API, no dynamic generation, no backend dependency.
+ * Single-page portfolio with request-initialized persona and appearance.
+ * Portfolio content remains local; no CMS or content API is required.
  */
 export const metadata: Metadata = {
   title: "Hambali Fadib — Software Quality Assurance Engineer",
@@ -22,10 +20,5 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
-  return (
-    <>
-      <DarkEditorialHero />
-      <HomepageSections />
-    </>
-  );
+  return <PersonaHomepage />;
 }

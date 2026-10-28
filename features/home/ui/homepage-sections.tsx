@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { aboutCvAction, aboutProfile } from "@/data/about";
 import { frameworkBlocks } from "@/data/framework";
 import { builtSystemsProjects } from "@/data/projects";
 import { contactChannels } from "@/data/profile";
 import { decisionPrinciplesSection, problemBreakdownSection } from "@/data/thinking";
+import { QaJourney } from "./qa-journey";
 
 type SectionHeadingProps = {
   eyebrow: string;
@@ -28,58 +29,15 @@ function SectionHeading({ eyebrow, title, description }: SectionHeadingProps) {
   );
 }
 
-const motionStages = [
-  {
-    code: "01 / SIGNAL",
-    title: "Find what matters.",
-    detail: "Understand the business intent and expose the behavior that could put it at risk.",
-  },
-  {
-    code: "02 / CONNECTION",
-    title: "Trace the dependency.",
-    detail: "Follow the handoffs between requirements, modules, data, and release decisions.",
-  },
-  {
-    code: "03 / EVIDENCE",
-    title: "Make the proof visible.",
-    detail: "Validate the critical boundary with reproducible tests and traceable observations.",
-  },
-  {
-    code: "04 / DECISION",
-    title: "Release with clarity.",
-    detail: "Separate verified behavior, accepted risk, and unresolved uncertainty.",
-  },
-] as const;
-
 export function HomepageSections() {
   return (
     <>
       <section
         id="qa-motion"
         aria-labelledby="qa-motion-heading"
-        className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
+        className="scroll-mt-24 border-t border-border/60 py-0"
       >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div id="qa-motion-heading">
-            <SectionHeading
-              eyebrow="From signal to decision"
-              title="Quality is a connected process."
-              description="An engineering path from the first risk signal to a decision backed by evidence, not assumption."
-            />
-          </div>
-          <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {motionStages.map((stage) => (
-              <li key={stage.code} className="group relative min-h-56 rounded-2xl border border-border/70 bg-card/70 p-6 transition-colors hover:border-coral/70 sm:p-7">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-xs tracking-wider text-coral">{stage.code}</span>
-                  <ArrowDownRight aria-hidden="true" className="h-5 w-5 text-muted-foreground/70" />
-                </div>
-                <h3 className="mt-10 font-display text-xl font-semibold text-foreground">{stage.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{stage.detail}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
+        <QaJourney />
       </section>
 
       <section

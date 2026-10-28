@@ -48,7 +48,10 @@ async function pageFor({
   await page.addInitScript(value => {
     if (!localStorage.getItem('theme')) localStorage.setItem('theme', value);
   }, theme);
-  await reliability.measure('navigation-domcontentloaded', page, () => page.goto(origin, { waitUntil: 'domcontentloaded' }));
+  const reviewUrl = new URL(origin);
+  reviewUrl.searchParams.set('persona', 'qa');
+  reviewUrl.searchParams.set('theme', theme);
+  await reliability.measure('navigation-domcontentloaded', page, () => page.goto(reviewUrl.toString(), { waitUntil: 'domcontentloaded' }));
   await page.waitForFunction(value => document.documentElement.classList.contains(value), theme, { timeout: 20_000 });
   await page.locator('button[data-theme-toggle]').waitFor({ state: 'visible', timeout: 20_000 });
   await page.waitForFunction(() => document.querySelector('button[data-theme-toggle]')?.getAttribute('aria-label')?.startsWith('Switch to'));
@@ -102,7 +105,7 @@ try {
     const { context, page } = await pageFor({ theme: from });
     const button = page.locator('button[data-theme-toggle]');
     const idle = await snapshot(page);
-    check(`${from}-idle-size-and-clean-surface`, idle.button.width === 36 && idle.button.height === 36 && idle.dogearCount === 0, idle);
+    check(`${from}-idle-size-and-clean-surface`, idle.button.width === 44 && idle.button.height === 44 && idle.dogearCount === 0, idle);
     check(`${from}-accessible-destination-label`, idle.label === `Switch to ${to} mode`, idle);
     await capture(page, `${from}-idle`);
 
@@ -130,7 +133,9 @@ try {
     check(`${from}-theme-persists-after-refresh`, (await snapshot(page)).theme === to, await snapshot(page));
 
     const box = await button.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(80);
+    await button.hover();
     await page.waitForFunction(() => Number(document.querySelector('svg[data-art="actual"]')?.dataset.progress) >= 0.025, null, { timeout: 2_000 });
     const initialHover = await snapshot(page);
     await capture(page, `${to}-hover-initial`);
@@ -202,7 +207,7 @@ try {
   const mobile = await pageFor({ theme: 'dark', width: 375, height: 812, touch: true });
   const mobileButton = mobile.page.locator('button[data-theme-toggle]');
   const mobileBox = await mobileButton.boundingBox();
-  check('mobile-hit-target-36x36', mobileBox.width === 36 && mobileBox.height === 36, mobileBox);
+  check('mobile-hit-target-44x44', mobileBox.width === 44 && mobileBox.height === 44, mobileBox);
   await mobileButton.tap();
   await waitForSettled(mobile.page, 'light');
   check('touch-activates-theme-without-hover', (await snapshot(mobile.page)).theme === 'light', await snapshot(mobile.page));
