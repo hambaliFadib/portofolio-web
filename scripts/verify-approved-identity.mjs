@@ -49,6 +49,20 @@ async function waitForUrl(page, pattern, timeout = 5000) {
   }, { timeout });
 }
 
+function contrastRatio(foreground, background) {
+  const luminance = (color) => {
+    const channels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    if (!channels || channels.length !== 3) return 0;
+    const linear = channels.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 try {
@@ -97,6 +111,12 @@ try {
           heroOpacity: heading ? getComputedStyle(heading).opacity : "missing",
           imageLoaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
           fontLoaded: document.fonts.check('700 16px Space Grotesk'),
+          saveColors: (() => {
+            const save = surface.querySelector('button[type="submit"]');
+            if (!save) return null;
+            const style = getComputedStyle(save);
+            return { foreground: style.color, background: style.backgroundColor };
+          })(),
           overflow: document.documentElement.scrollWidth > innerWidth,
           firstFrames: window.__identityFirstPaint,
         };
@@ -105,6 +125,7 @@ try {
         failures.push(`first paint mismatch ${mode.persona}/${mode.theme}/${viewport.width}: ${JSON.stringify(check)}`);
       }
       if (Number(check.heroOpacity) < 0.99 || !check.imageLoaded || !check.fontLoaded || check.overflow) failures.push(`render integrity ${mode.persona}/${mode.theme}/${viewport.width}: ${JSON.stringify(check)}`);
+      if (mode.persona === "qa" && check.saveColors && contrastRatio(check.saveColors.foreground, check.saveColors.background) < 4.5) failures.push(`Save profile text contrast below 4.5:1 in ${mode.theme}: ${JSON.stringify(check.saveColors)}`);
       results.firstPaint.push({ ...mode, viewport, ...check });
       if (viewport.width === 1440) {
         await page.screenshot({ path: path.join(output, `${mode.persona}-${mode.theme}-1440x900.png`) });
@@ -133,6 +154,13 @@ try {
   await qa.getByRole("button", { name: /reload profile/i }).click();
   await qa.getByText("Nadia Putri").first().waitFor();
   results.interactions.push("Signal simulated reload");
+  await qa.locator("#qa-profile-name").fill("Nadia Putri");
+  await qa.getByRole("button", { name: /save profile/i }).click();
+  await qa.getByText("Profile saved").waitFor();
+  await qa.getByRole("button", { name: /reload profile/i }).click();
+  await qa.getByText("Profile reloaded").waitFor();
+  if (await qa.getByText(/Mismatch - the earlier profile name is still shown/).count()) failures.push("Signal simulation reported a mismatch when expected and observed names agreed");
+  results.interactions.push("Signal status matches saved and observed values");
   await qa.getByRole("tab", { name: /connection/i }).click();
   const persistenceNode = qa.getByRole("button", { name: /data persistence/i });
   await persistenceNode.click();

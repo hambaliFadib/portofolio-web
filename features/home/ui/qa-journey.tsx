@@ -101,10 +101,12 @@ function ArtifactFrame({ label, children }: { label: string; children: ReactNode
 }
 
 function SignalArtifact() {
+  const observedName = "Nadia Putri";
   const [name, setName] = useState("Maya Putri");
   const [savedName, setSavedName] = useState("Maya Putri");
   const [saved, setSaved] = useState(true);
   const [reloaded, setReloaded] = useState(false);
+  const mismatch = reloaded && savedName !== observedName;
   const reduceMotion = useReducedMotionPreference();
 
   return (
@@ -113,11 +115,11 @@ function SignalArtifact() {
         <form className="min-w-0 flex-1" onSubmit={(event) => { event.preventDefault(); setSavedName(name.trim()); setSaved(true); setReloaded(false); }}>
           <label htmlFor="qa-profile-name" className={detailLabelClass}>Profile name - local simulation</label>
           <input id="qa-profile-name" value={name} maxLength={48} required onChange={(event) => { setName(event.target.value); setSaved(false); setReloaded(false); }} className="mt-2 block min-h-11 w-full max-w-sm border-b border-border bg-transparent py-2 font-display text-[18px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background" />
-          <button type="submit" className="mt-3 inline-flex min-h-11 items-center rounded-[10px] bg-coral px-4 py-2 text-sm font-semibold text-[#17243A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Save profile</button>
+          <button type="submit" className="mt-3 inline-flex min-h-11 items-center rounded-[10px] bg-coral px-4 py-2 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Save profile</button>
         </form>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:justify-end">
           <motion.span layout={!reduceMotion} className="min-w-[22ch] font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-coral sm:text-[10px]">
-            <AnimatedText value={reloaded ? "Previous name returned" : saved ? "Profile saved" : "Edits are not saved"} reduceMotion={reduceMotion} />
+            <AnimatedText value={reloaded ? mismatch ? "Previous name returned" : "Profile reloaded" : saved ? "Profile saved" : "Edits are not saved"} reduceMotion={reduceMotion} />
           </motion.span>
           <button type="button" onClick={() => setReloaded(true)} disabled={reloaded} className={actionClass}>
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
@@ -128,8 +130,8 @@ function SignalArtifact() {
       <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} className="mt-5 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:mt-6 sm:gap-6">
         <div className="min-w-0">
           <span className={detailLabelClass}>After reload - observed</span>
-          <strong className={`${artifactValueClass} ${reloaded ? "text-coral" : "text-muted-foreground"}`}>
-            <AnimatedText value={reloaded ? "Nadia Putri" : "Not checked"} reduceMotion={reduceMotion} />
+          <strong className={`${artifactValueClass} ${mismatch ? "text-coral" : reloaded ? "text-primary" : "text-muted-foreground"}`}>
+            <AnimatedText value={reloaded ? observedName : "Not checked"} reduceMotion={reduceMotion} />
           </strong>
         </div>
         <div className="min-w-0">
@@ -140,15 +142,17 @@ function SignalArtifact() {
       <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} role="status" aria-live="polite" className={`mt-4 border-t border-border pt-3 ${artifactBodyClass} sm:mt-5`}>
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
-            key={reloaded ? "mismatch" : "awaiting-evidence"}
+            key={mismatch ? "mismatch" : reloaded ? "match" : "awaiting-evidence"}
             initial={reduceMotion ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
             transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: actionEase }}
           >
-            {reloaded
+            {mismatch
               ? "Mismatch - the earlier profile name is still shown. This simulation does not change an account."
-              : "A confirmation is feedback; persistence still needs evidence."}
+              : reloaded
+                ? "Match - the saved value is visible after reload in this local simulation."
+                : "A confirmation is feedback; persistence still needs evidence."}
           </motion.p>
         </AnimatePresence>
       </motion.div>
