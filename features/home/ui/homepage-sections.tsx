@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { aboutCvAction, aboutProfile } from "@/data/about";
 import { frameworkBlocks } from "@/data/framework";
-import { builtSystemsProjects } from "@/data/projects";
 import { contactChannels } from "@/data/profile";
 import { decisionPrinciplesSection, problemBreakdownSection } from "@/data/thinking";
+import { ProjectsShowcase } from "./projects-showcase";
 import { QaJourney } from "./qa-journey";
 
 type SectionHeadingProps = {
@@ -40,54 +40,7 @@ export function HomepageSections() {
         <QaJourney />
       </section>
 
-      <section
-        id="projects"
-        aria-labelledby="projects-heading"
-        className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
-      >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div id="projects-heading">
-            <SectionHeading
-              eyebrow="Selected work"
-              title="Systems built around testable trust."
-              description="Two public engineering projects where reproducibility, governance, and traceability matter more than generated output."
-            />
-          </div>
-          <div className="grid gap-5 lg:grid-cols-2">
-            {builtSystemsProjects.map((project, index) => {
-              const repository = project.evidence?.find((item) => item.label === "GitHub repo");
-              return (
-                <article key={project.id} className="flex min-h-80 flex-col rounded-3xl border border-border/70 bg-card p-7 shadow-sm sm:p-9">
-                  <div className="flex items-start justify-between gap-6">
-                    <span className="font-mono text-xs text-coral">PROJECT / 0{index + 1}</span>
-                    {repository && (
-                      <Link
-                        href={repository.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={"View source for " + project.title}
-                        className="rounded-full border border-border p-3 text-foreground transition-colors hover:border-coral focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      >
-                        <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
-                      </Link>
-                    )}
-                  </div>
-                  <h3 className="mt-10 font-display text-2xl font-semibold text-foreground sm:text-3xl">
-                    {project.title}
-                  </h3>
-                  <p className="mt-3 text-sm font-medium text-coral">{project.domain}</p>
-                  <p className="mt-5 text-sm leading-7 text-muted-foreground">{project.problem}</p>
-                  <div className="mt-auto flex flex-wrap gap-2 pt-8">
-                    {project.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">{tag}</span>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <ProjectsShowcase />
 
       <section
         id="thinking"
