@@ -78,6 +78,7 @@ export function DarkEditorialHero() {
         </motion.p>
 
         <motion.h1
+          aria-label={heroHeadline}
           tabIndex={-1}
           className="mt-6 font-display text-[2.5rem] font-bold leading-[1.05] tracking-tight text-foreground sm:text-[3.2rem] lg:text-[3.8rem]"
           initial={reduceMotion ? false : { opacity: 1, y: 24 }}
