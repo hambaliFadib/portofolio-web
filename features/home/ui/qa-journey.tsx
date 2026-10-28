@@ -243,7 +243,11 @@ function EvidenceArtifact() {
   const observed = step >= 2;
 
   useEffect(() => {
-    if (!isRunning || reduceMotion) return;
+    if (!isRunning) return;
+    if (reduceMotion) {
+      queueMicrotask(() => setStep((current) => current >= 0 && current < verificationSteps.length - 1 ? verificationSteps.length - 1 : current));
+      return;
+    }
     const timer = window.setTimeout(() => {
       setStep((current) => Math.min(current + 1, verificationSteps.length - 1));
     }, 210);

@@ -169,6 +169,13 @@ try {
   await qa.getByRole("tab", { name: /evidence/i }).click();
   await qa.getByRole("button", { name: "Run verification" }).click();
   await qa.getByText(/Evidence confirms a mismatch in this example/).waitFor();
+  await qa.getByRole("button", { name: /run verification again/i }).click();
+  await qa.getByRole("button", { name: /simulating verification/i }).waitFor();
+  await qa.emulateMedia({ reducedMotion: "reduce" });
+  await qa.getByRole("button", { name: /run verification again/i }).waitFor();
+  await qa.getByText(/Assertion failed - simulated/).waitFor();
+  await qa.emulateMedia({ reducedMotion: "no-preference" });
+  results.interactions.push("In-flight verification completes when reduced motion is enabled");
   results.interactions.push("Evidence simulation");
   await qa.getByRole("tab", { name: /decision/i }).click();
   await qa.getByRole("button", { name: /reveal assessment/i }).click();
