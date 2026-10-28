@@ -132,7 +132,7 @@ export function ProjectsShowcase() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {builtSystemsProjects.map((project, index) => {
+          {builtSystemsProjects.map((project) => {
             const narrative = projectNarratives[project.id];
             if (!narrative) return null;
             const repository = project.evidence?.find((item) => item.label === "GitHub repo");
