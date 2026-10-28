@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
 import "@fontsource/space-grotesk/500.css";
 import "@fontsource/space-grotesk/600.css";
 import "@fontsource/space-grotesk/700.css";
 import { Header } from "@/features/navigation";
 import { PageMotion } from "@/components/layout/page-motion";
-import { ThemeProvider } from "@/features/theme";
+import { IdentityProvider, type Appearance, type Persona } from "@/components/identity/identity-provider";
 import { siteConfig } from "@/data/profile";
 import "./globals.css";
 
@@ -33,25 +34,24 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const persona: Persona = requestHeaders.get("x-portfolio-persona") === "fullstack" ? "fullstack" : "qa";
+  const appearance: Appearance = requestHeaders.get("x-portfolio-appearance") === "dark" ? "dark" : "light";
   return (
-    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="en" className={`scroll-smooth ${appearance}`} data-persona={persona} data-appearance={appearance}>
       <body className="font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-        >
+        <IdentityProvider initialPersona={persona} initialAppearance={appearance}>
           <div className="relative flex min-h-screen flex-col">
             <Header />
             <PageMotion>{children}</PageMotion>
           </div>
           <Analytics />
-        </ThemeProvider>
+        </IdentityProvider>
       </body>
     </html>
   );

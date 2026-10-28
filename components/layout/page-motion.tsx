@@ -16,7 +16,7 @@ export function PageMotion({ children }: PropsWithChildren) {
 
     const revealTargets = Array.from(
       page.querySelectorAll<HTMLElement>("section, [data-motion-reveal]"),
-    );
+    ).filter((target) => target.id !== "top");
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {

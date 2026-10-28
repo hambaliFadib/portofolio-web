@@ -310,6 +310,153 @@
   }
 }
 
+/* Approved CP-IDENTITY-01F persona/appearance tokens. */
+.identity-surface {
+  --identity-paper-light: #EFF3F7;
+  --identity-paper-light-surface: #F9FBFD;
+  --identity-paper-light-edge: #7C8BA0;
+  --identity-paper-light-ink: #3554D7;
+  --identity-paper-dark: #0B1524;
+  --identity-paper-dark-surface: #13233A;
+  --identity-paper-dark-edge: #536782;
+  --identity-paper-dark-ink: #8FAAFF;
+  --background: #EFF3F7;
+  --foreground: #17243A;
+  --card: #F9FBFD;
+  --card-foreground: #17243A;
+  --popover: #F9FBFD;
+  --popover-foreground: #17243A;
+  --primary: #3554D7;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E1E9F3;
+  --secondary-foreground: #17243A;
+  --muted: #E1E9F3;
+  --muted-foreground: #52627A;
+  --accent: #E1E9F3;
+  --accent-foreground: #17243A;
+  --border: #7C8BA0;
+  --input: #73849A;
+  --ring: #3554D7;
+  --color-coral: #3554D7;
+  --identity-accent: #3554D7;
+  --identity-strong: #3554D7;
+  --identity-soft: #E2E9FF;
+  --identity-ink: #FFFFFF;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.identity-surface[data-persona="qa"][data-appearance="dark"] {
+  --background: #0B1524;
+  --foreground: #EDF3FF;
+  --card: #13233A;
+  --card-foreground: #EDF3FF;
+  --popover: #13233A;
+  --popover-foreground: #EDF3FF;
+  --primary: #8FAAFF;
+  --primary-foreground: #0B1524;
+  --secondary: #1A2D49;
+  --secondary-foreground: #EDF3FF;
+  --muted: #1A2D49;
+  --muted-foreground: #B6C4D8;
+  --accent: #1A2D49;
+  --accent-foreground: #EDF3FF;
+  --border: #536782;
+  --input: #7186A4;
+  --ring: #8FAAFF;
+  --color-coral: #8FAAFF;
+  --identity-accent: #8FAAFF;
+  --identity-strong: #8FAAFF;
+  --identity-soft: #263A60;
+  --identity-ink: #0B1524;
+}
+
+.identity-surface[data-persona="fullstack"][data-appearance="light"] {
+  --identity-paper-light: #F0F4ED;
+  --identity-paper-light-surface: #FAFCF8;
+  --identity-paper-light-edge: #7D8B78;
+  --identity-paper-light-ink: #536F2D;
+  --identity-paper-dark: #101A15;
+  --identity-paper-dark-surface: #192820;
+  --identity-paper-dark-edge: #526B55;
+  --identity-paper-dark-ink: #B7FF4B;
+  --background: #F0F4ED;
+  --foreground: #19212C;
+  --card: #FAFCF8;
+  --card-foreground: #19212C;
+  --popover: #FAFCF8;
+  --popover-foreground: #19212C;
+  --primary: #536F2D;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E3EADD;
+  --secondary-foreground: #19212C;
+  --muted: #E3EADD;
+  --muted-foreground: #4B5B4C;
+  --accent: #E3EADD;
+  --accent-foreground: #19212C;
+  --border: #7D8B78;
+  --input: #738270;
+  --ring: #59752E;
+  --color-coral: #59752E;
+  --identity-accent: #B7FF4B;
+  --identity-strong: #536F2D;
+  --identity-soft: #E4EDD8;
+  --identity-ink: #19212C;
+}
+
+.identity-surface[data-persona="fullstack"][data-appearance="dark"] {
+  --identity-paper-light: #F0F4ED;
+  --identity-paper-light-surface: #FAFCF8;
+  --identity-paper-light-edge: #7D8B78;
+  --identity-paper-light-ink: #536F2D;
+  --identity-paper-dark: #101A15;
+  --identity-paper-dark-surface: #192820;
+  --identity-paper-dark-edge: #526B55;
+  --identity-paper-dark-ink: #B7FF4B;
+  --background: #101A15;
+  --foreground: #EDF5EA;
+  --card: #192820;
+  --card-foreground: #EDF5EA;
+  --popover: #192820;
+  --popover-foreground: #EDF5EA;
+  --primary: #B7FF4B;
+  --primary-foreground: #19212C;
+  --secondary: #22382A;
+  --secondary-foreground: #EDF5EA;
+  --muted: #22382A;
+  --muted-foreground: #B7C8B7;
+  --accent: #22382A;
+  --accent-foreground: #EDF5EA;
+  --border: #526B55;
+  --input: #748C74;
+  --ring: #B7FF4B;
+  --color-coral: #B7FF4B;
+  --identity-accent: #B7FF4B;
+  --identity-strong: #B7FF4B;
+  --identity-soft: #304425;
+  --identity-ink: #19212C;
+}
+
+.identity-surface > .relative > header {
+  border-color: color-mix(in srgb, var(--border) 48%, transparent);
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+}
+
+.identity-surface[data-persona="fullstack"] .theme-toggle-control {
+  border: 1px solid color-mix(in srgb, var(--identity-strong) 42%, var(--border));
+  background: color-mix(in srgb, var(--identity-soft) 55%, var(--background));
+  color: var(--identity-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .identity-surface *,
+  .identity-surface *::before,
+  .identity-surface *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer components {
   .grid-bg {
     background-image:

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useReducedMotionPreference } from "@/components/motion/use-reduced-motion";
 
 /**
  * ASCII Cursor Lens — renders an image-derived ASCII representation
@@ -57,9 +58,7 @@ export function AsciiLens({
 
   const [lensPos, setLensPos] = useState<{ x: number; y: number } | null>(null);
   const [showLens, setShowLens] = useState(false);
-  const reduceMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduceMotion = useReducedMotionPreference();
 
   // Luminance for ASCII Layer B is sampled directly from the magnified
   // canvas crop at render time. No precomputed grid needed.
