@@ -158,6 +158,7 @@ try {
   const themeButton = qa.locator("[data-theme-toggle]");
   await themeButton.click();
   await qa.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark", null, { timeout: 5000 });
+  if (await qa.evaluate(() => localStorage.getItem("theme")) !== "dark") failures.push("Theme compatibility preference was not stored");
   if (await qa.locator(".identity-surface").getAttribute("data-appearance") !== "dark") failures.push("Theme toggle failed to update identity surface");
   await qa.reload({ waitUntil: "domcontentloaded" });
   await qa.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark");
@@ -181,7 +182,7 @@ try {
     if (section === "projects" || section === "qa-motion") {
       await page.screenshot({ path: path.join(output, `transition-qa-${section}-before.png`) });
     }
-    await page.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+    await page.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
     if (!(await page.locator("canvas[data-persona-transition]").count())) failures.push(`transition canvas missing from ${section}`);
     await page.waitForTimeout(110);
     if (section === "projects" || section === "qa-motion") {
@@ -209,7 +210,7 @@ try {
   observe(reverse, "Reverse transition");
   await reverse.goto(`${origin}/?persona=fullstack&theme=light`, { waitUntil: "networkidle" });
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-before.png") });
-  await reverse.getByRole("button", { name: "Switch to QA Engineer" }).click();
+  await reverse.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
   await reverse.waitForTimeout(110);
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-covered.png") });
   await waitForUrl(reverse, /persona=qa.*theme=light.*#top/);
@@ -222,7 +223,7 @@ try {
   await history.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
   await history.locator("#about").scrollIntoViewIfNeeded();
   const historyScroll = await history.evaluate(() => window.scrollY);
-  await history.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await history.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
   await waitForUrl(history, /persona=fullstack.*#top/);
   await history.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
   await history.goBack();
@@ -238,7 +239,7 @@ try {
   const keyboard = await browser.newPage({ viewport: { width: 390, height: 844 } });
   observe(keyboard, "Keyboard");
   await keyboard.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
-  const keyboardBrand = keyboard.getByRole("button", { name: "Switch to Full Stack Engineer" });
+  const keyboardBrand = keyboard.getByRole("link", { name: "Hambali Fadib — back to top" });
   await keyboardBrand.focus();
   await keyboard.keyboard.press("Enter");
   await waitForUrl(keyboard, /persona=fullstack.*#top/);
@@ -247,14 +248,14 @@ try {
   const touch = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   observe(touch, "Touch");
   await touch.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
-  await touch.getByRole("button", { name: "Switch to Full Stack Engineer" }).tap();
+  await touch.getByRole("link", { name: "Hambali Fadib — back to top" }).tap();
   await waitForUrl(touch, /persona=fullstack.*#top/);
   results.interactions.push("Touch persona activation");
 
   const reduced = await browser.newPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
   observe(reduced, "Reduced motion");
   await reduced.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
-  await reduced.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await reduced.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
   await waitForUrl(reduced, /persona=fullstack.*theme=dark.*#top/);
   if (await reduced.locator("canvas[data-persona-transition]").count()) failures.push("Reduced motion rendered transition particles");
   results.reducedMotion = { persona: "fullstack", theme: "dark", particles: 0 };

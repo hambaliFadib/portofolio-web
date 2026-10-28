@@ -37,6 +37,14 @@ function applyUrl(persona: Persona, appearance: Appearance, options: { replace?:
   window.history[method]({ ...window.history.state, persona, appearance }, "", url);
 }
 
+function persistAppearance(appearance: Appearance) {
+  try {
+    window.localStorage.setItem("theme", appearance);
+  } catch {
+    // URL and React state remain authoritative when storage is unavailable.
+  }
+}
+
 function drawFragments(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d");
   if (!context) return () => {};
@@ -128,6 +136,7 @@ export function IdentityProvider({
   const cancelAnimation = useRef<(() => void) | null>(null);
   const setAppearance = useCallback((next: Appearance) => {
     setAppearanceState(next);
+    persistAppearance(next);
     applyUrl(persona, next, { replace: true });
   }, [persona]);
 
@@ -194,6 +203,7 @@ export function IdentityProvider({
       const nextAppearance = params.get("theme") === "dark" ? "dark" : "light";
       setPersona(nextPersona);
       setAppearanceState(nextAppearance);
+      persistAppearance(nextAppearance);
     };
     window.addEventListener("popstate", sync);
     return () => {
