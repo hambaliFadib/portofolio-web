@@ -42,11 +42,10 @@ export default async function RootLayout({
   const requestHeaders = await headers();
   const persona: Persona = requestHeaders.get("x-portfolio-persona") === "fullstack" ? "fullstack" : "qa";
   const appearance: Appearance = requestHeaders.get("x-portfolio-appearance") === "dark" ? "dark" : "light";
-  const appearanceExplicit = requestHeaders.get("x-portfolio-appearance-explicit") === "true";
   return (
     <html lang="en" className={`scroll-smooth ${appearance}`} data-persona={persona} data-appearance={appearance}>
       <body className="font-sans antialiased">
-        <IdentityProvider initialPersona={persona} initialAppearance={appearance} appearanceExplicit={appearanceExplicit}>
+        <IdentityProvider initialPersona={persona} initialAppearance={appearance}>
           <div className="relative flex min-h-screen flex-col">
             <Header />
             <PageMotion>{children}</PageMotion>

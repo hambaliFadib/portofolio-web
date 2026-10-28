@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type PropsWithChildren,
 } from "react";
 
@@ -41,19 +40,14 @@ function applyUrl(persona: Persona, appearance: Appearance, options: { replace?:
 function persistAppearance(appearance: Appearance) {
   try {
     window.localStorage.setItem("theme", appearance);
-    window.dispatchEvent(new Event("portfolio-theme-change"));
   } catch {
-    // URL and React state remain authoritative when storage is unavailable.
+    // Cookie persistence can still support the next server-rendered request.
   }
-}
-
-function subscribeToStoredAppearance(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  window.addEventListener("portfolio-theme-change", onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener("portfolio-theme-change", onChange);
-  };
+  try {
+    document.cookie = `theme=${appearance}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  } catch {
+    // URL and React state remain authoritative when cookie persistence is unavailable.
+  }
 }
 
 function getStoredAppearance(): Appearance | null {
@@ -148,12 +142,10 @@ export function IdentityProvider({
   children,
   initialPersona,
   initialAppearance,
-  appearanceExplicit,
-}: PropsWithChildren<{ initialPersona: Persona; initialAppearance: Appearance; appearanceExplicit: boolean }>) {
+}: PropsWithChildren<{ initialPersona: Persona; initialAppearance: Appearance }>) {
   const [persona, setPersona] = useState(initialPersona);
   const [appearanceState, setAppearanceState] = useState(initialAppearance);
-  const storedAppearance = useSyncExternalStore(subscribeToStoredAppearance, getStoredAppearance, () => null);
-  const appearance = !appearanceExplicit && storedAppearance ? storedAppearance : appearanceState;
+  const appearance = appearanceState;
   const [transitioning, setTransitioning] = useState(false);
   const busy = useRef(false);
   const cancelAnimation = useRef<(() => void) | null>(null);
@@ -162,12 +154,6 @@ export function IdentityProvider({
     persistAppearance(next);
     applyUrl(persona, next, { replace: true });
   }, [persona]);
-
-  useEffect(() => {
-    if (!appearanceExplicit && storedAppearance && !new URLSearchParams(window.location.search).has("theme")) {
-      applyUrl(persona, storedAppearance, { replace: true });
-    }
-  }, [appearanceExplicit, persona, storedAppearance]);
 
   const switchPersona = useCallback(() => {
     if (busy.current) return;
@@ -229,10 +215,15 @@ export function IdentityProvider({
       setTransitioning(false);
       const params = new URLSearchParams(window.location.search);
       const nextPersona = window.location.pathname === "/" && params.get("persona") === "fullstack" ? "fullstack" : "qa";
-      const nextAppearance = params.get("theme") === "dark" ? "dark" : "light";
+      const urlAppearance = params.get("theme");
+      const historyAppearance = window.history.state?.appearance;
+      const nextAppearance = urlAppearance === "light" || urlAppearance === "dark"
+        ? urlAppearance
+        : historyAppearance === "light" || historyAppearance === "dark"
+          ? historyAppearance
+          : getStoredAppearance() ?? "dark";
       setPersona(nextPersona);
       setAppearanceState(nextAppearance);
-      persistAppearance(nextAppearance);
     };
     window.addEventListener("popstate", sync);
     return () => {

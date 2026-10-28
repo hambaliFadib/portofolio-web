@@ -78,6 +78,8 @@ export function Header() {
   const portalRoot = typeof document === "undefined" ? null : document.getElementById("portfolio-identity");
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null);
+  const personaSwitchFrameRef = useRef<number | null>(null);
+  const personaSwitchPendingRef = useRef(false);
 
   const observerReportedSectionRef = useRef(false);
   // ── Scroll-spy ─────────────────────────────────────────────
@@ -90,11 +92,14 @@ export function Header() {
       return;
     }
 
+    let disposed = false;
+    observerReportedSectionRef.current = false;
     const intersecting = new Map<string, number>();
     const bandCenter = () => window.innerHeight / 2;
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (disposed) return;
         for (const entry of entries) {
           const owner = SECTION_TO_NAV[entry.target.id];
           if (!owner) {
@@ -134,9 +139,10 @@ export function Header() {
     }
 
     return () => {
+      disposed = true;
       observer.disconnect();
     };
-  }, []);
+  }, [persona]);
 
   // Direct hash navigation (e.g. /#thinking on load) initializes
   // the correct active state even before any scroll event fires.
@@ -163,10 +169,33 @@ export function Header() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [persona]);
 
   // ── Mobile menu ────────────────────────────────────────────
   const closeMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  const handlePersonaSwitch = useCallback(() => {
+    if (personaSwitchPendingRef.current || transitioning) return;
+    personaSwitchPendingRef.current = true;
+    if (mobileMenuOpen) {
+      closeMenu();
+      document.body.style.overflow = "";
+      personaSwitchFrameRef.current = window.requestAnimationFrame(() => {
+        personaSwitchFrameRef.current = null;
+        personaSwitchPendingRef.current = false;
+        switchPersona();
+      });
+      return;
+    }
+    personaSwitchPendingRef.current = false;
+    switchPersona();
+  }, [closeMenu, mobileMenuOpen, switchPersona, transitioning]);
+
+  useEffect(() => () => {
+    if (personaSwitchFrameRef.current !== null) {
+      window.cancelAnimationFrame(personaSwitchFrameRef.current);
+    }
+  }, []);
 
   // Lock body scroll, return focus to the toggle on close,
   // and restore focus to the toggle when Escape is pressed.
@@ -211,7 +240,7 @@ export function Header() {
           title={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
           disabled={transitioning}
           className="group flex min-w-0 cursor-pointer flex-col items-start rounded-md bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={switchPersona}
+          onClick={handlePersonaSwitch}
         >
           <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
           <span className="mt-1 hidden font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80 sm:block">

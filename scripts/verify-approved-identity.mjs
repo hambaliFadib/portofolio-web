@@ -3,7 +3,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const origin = process.env.IDENTITY_PREVIEW_URL ?? "http://localhost:3002";
-const output = path.resolve("output/playwright/cp-03u");
+const output = path.resolve(process.env.IDENTITY_EVIDENCE_DIR ?? "output/playwright/cp-03u");
 const modes = [
   { persona: "qa", theme: "light", background: "rgb(239, 243, 247)" },
   { persona: "qa", theme: "dark", background: "rgb(11, 21, 36)" },
@@ -159,6 +159,7 @@ try {
   await themeButton.click();
   await qa.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark", null, { timeout: 5000 });
   if (await qa.evaluate(() => localStorage.getItem("theme")) !== "dark") failures.push("Theme compatibility preference was not stored");
+  if (!(await qa.evaluate(() => document.cookie.split("; ").includes("theme=dark")))) failures.push("Theme SSR preference cookie was not stored");
   if (await qa.locator(".identity-surface").getAttribute("data-appearance") !== "dark") failures.push("Theme toggle failed to update identity surface");
   await qa.reload({ waitUntil: "domcontentloaded" });
   await qa.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark");
@@ -182,7 +183,7 @@ try {
     if (section === "projects" || section === "qa-motion") {
       await page.screenshot({ path: path.join(output, `transition-qa-${section}-before.png`) });
     }
-    await page.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
+    await page.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
     if (!(await page.locator("canvas[data-persona-transition]").count())) failures.push(`transition canvas missing from ${section}`);
     await page.waitForTimeout(110);
     if (section === "projects" || section === "qa-motion") {
@@ -210,7 +211,7 @@ try {
   observe(reverse, "Reverse transition");
   await reverse.goto(`${origin}/?persona=fullstack&theme=light`, { waitUntil: "networkidle" });
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-before.png") });
-  await reverse.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
+  await reverse.getByRole("button", { name: "Switch to QA Engineer" }).click();
   await reverse.waitForTimeout(110);
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-covered.png") });
   await waitForUrl(reverse, /persona=qa.*theme=light.*#top/);
@@ -223,7 +224,7 @@ try {
   await history.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
   await history.locator("#about").scrollIntoViewIfNeeded();
   const historyScroll = await history.evaluate(() => window.scrollY);
-  await history.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
+  await history.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
   await waitForUrl(history, /persona=fullstack.*#top/);
   await history.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
   await history.goBack();
@@ -239,7 +240,7 @@ try {
   const keyboard = await browser.newPage({ viewport: { width: 390, height: 844 } });
   observe(keyboard, "Keyboard");
   await keyboard.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
-  const keyboardBrand = keyboard.getByRole("link", { name: "Hambali Fadib — back to top" });
+  const keyboardBrand = keyboard.getByRole("button", { name: "Switch to Full Stack Engineer" });
   await keyboardBrand.focus();
   await keyboard.keyboard.press("Enter");
   await waitForUrl(keyboard, /persona=fullstack.*#top/);
@@ -248,17 +249,129 @@ try {
   const touch = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   observe(touch, "Touch");
   await touch.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
-  await touch.getByRole("link", { name: "Hambali Fadib — back to top" }).tap();
+  await touch.getByRole("button", { name: "Switch to Full Stack Engineer" }).tap();
   await waitForUrl(touch, /persona=fullstack.*#top/);
   results.interactions.push("Touch persona activation");
 
   const reduced = await browser.newPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
   observe(reduced, "Reduced motion");
   await reduced.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
-  await reduced.getByRole("link", { name: "Hambali Fadib — back to top" }).click();
+  await reduced.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
   await waitForUrl(reduced, /persona=fullstack.*theme=dark.*#top/);
   if (await reduced.locator("canvas[data-persona-transition]").count()) failures.push("Reduced motion rendered transition particles");
   results.reducedMotion = { persona: "fullstack", theme: "dark", particles: 0 };
+
+  // P2-01: appearance resolution follows URL, history entry, stored preference, then Dark fallback.
+  const fresh = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  observe(fresh, "Appearance fresh fallback");
+  await fresh.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await fresh.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  if (await fresh.locator("html").getAttribute("data-appearance") !== "dark" || await fresh.locator("html").evaluate((element) => !element.classList.contains("dark"))) failures.push("Fresh URL without preference did not initialize Dark");
+  await fresh.close();
+
+  const storedLight = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await storedLight.context().addCookies([{ name: "theme", value: "light", url: origin }]);
+  await storedLight.addInitScript(() => localStorage.setItem("theme", "light"));
+  observe(storedLight, "Stored Light fallback");
+  await storedLight.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await storedLight.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light");
+  if (await storedLight.locator("html").getAttribute("data-appearance") !== "light" || await storedLight.locator("html").evaluate((element) => !element.classList.contains("light"))) failures.push("Stored Light preference did not initialize Light");
+  await storedLight.close();
+
+  const fallbackHistory = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  observe(fallbackHistory, "Appearance history fallback");
+  await fallbackHistory.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  await fallbackHistory.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await waitForUrl(fallbackHistory, /persona=fullstack.*theme=dark.*#top/);
+  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+  await fallbackHistory.goBack();
+  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  if (await fallbackHistory.evaluate(() => localStorage.getItem("theme")) !== null) failures.push("History restoration fabricated a stored appearance preference");
+  await fallbackHistory.goForward();
+  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  await fallbackHistory.reload({ waitUntil: "domcontentloaded" });
+  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  await fallbackHistory.close();
+
+  for (const theme of ["light", "dark"]) {
+    const explicit = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    await explicit.context().addCookies([{ name: "theme", value: theme === "light" ? "dark" : "light", url: origin }]);
+    observe(explicit, `Explicit ${theme}`);
+    await explicit.goto(`${origin}/?persona=qa&theme=${theme}`, { waitUntil: "domcontentloaded" });
+    await explicit.waitForFunction((value) => document.querySelector("html")?.getAttribute("data-appearance") === value, theme);
+    if (await explicit.locator(".identity-surface").getAttribute("data-appearance") !== theme) failures.push(`Explicit URL ${theme} did not override stored preference`);
+    await explicit.close();
+  }
+  results.interactions.push("Appearance URL, stored preference, and canonical fallback resolution");
+
+  // P2-02: observer is rebuilt after persona section mount/unmount cycles.
+  const spy = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  observe(spy, "Persona scroll spy");
+  await spy.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
+  const activeNav = () => spy.locator('nav[aria-label="Primary"] a[aria-current="true"]');
+  await spy.waitForFunction(() => document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === "#projects");
+  results.interactions.push("Direct #projects hash initializes active navigation");
+  await spy.locator("#projects").scrollIntoViewIfNeeded();
+  await spy.waitForFunction(() => document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === "#projects");
+  await spy.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await spy.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  await spy.getByRole("button", { name: "Switch to QA Engineer" }).click();
+  await spy.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  for (const section of ["projects", "thinking", "about", "contact", "projects", "thinking", "about", "contact"]) {
+    await spy.locator(`#${section}`).scrollIntoViewIfNeeded();
+    const href = section === "contact" ? "#contact" : `#${section}`;
+    await spy.waitForFunction((expected) => document.querySelector(`nav[aria-label="Primary"] a[href="${expected}"][aria-current="true"]`) !== null, href);
+  }
+  if (await activeNav().count() !== 1) failures.push("Scroll spy did not retain a single active navigation item after persona round trips");
+  results.interactions.push("Scroll spy reconnects after repeated persona round trips");
+  await spy.close();
+
+  // P2-03: closing the mobile dialog precedes persona transition and restores scrolling.
+  for (const width of [390, 320]) {
+    const mobile = await browser.newPage({ viewport: { width, height: width === 390 ? 844 : 760 }, isMobile: true, hasTouch: true });
+    observe(mobile, `Mobile persona menu ${width}`);
+    await mobile.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
+    const menuToggle = mobile.locator('button[aria-controls="primary-mobile-menu"]');
+    await mobile.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+    await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+    if (await mobile.getByRole("button", { name: "Close menu" }).count()) failures.push(`Closed-menu switch left mobile menu open at ${width}px`);
+    if (await mobile.evaluate(() => getComputedStyle(document.body).overflow === "hidden")) failures.push(`Closed-menu switch retained body lock at ${width}px`);
+    await mobile.getByRole("button", { name: "Switch to QA Engineer" }).click();
+    await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && !document.querySelector("canvas[data-persona-transition]"));
+
+    await menuToggle.click();
+    await mobile.getByRole("dialog", { name: "Site navigation" }).waitFor();
+    if (await menuToggle.getAttribute("aria-expanded") !== "true") failures.push(`Mobile menu did not set aria-expanded at ${width}px`);
+    await mobile.keyboard.press("Escape");
+    await mobile.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Site navigation"]'));
+    if (await mobile.evaluate(() => document.activeElement?.getAttribute("aria-controls")) !== "primary-mobile-menu") failures.push(`Escape did not return focus to menu toggle at ${width}px`);
+    await menuToggle.click();
+    const mobileBrand = mobile.getByRole("button", { name: "Switch to Full Stack Engineer" });
+    if (width === 320) await mobileBrand.tap();
+    else {
+      await mobileBrand.focus();
+      await mobile.keyboard.press("Enter");
+    }
+    await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack");
+    await mobile.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+    await mobile.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Site navigation"]'));
+    if (await menuToggle.getAttribute("aria-expanded") !== "false") failures.push(`Wordmark switch did not close menu at ${width}px`);
+    if (await mobile.evaluate(() => getComputedStyle(document.body).overflow === "hidden")) failures.push(`Wordmark switch retained body lock at ${width}px`);
+    if (await mobile.evaluate(() => document.documentElement.scrollHeight <= innerHeight)) failures.push(`Destination page could not scroll at ${width}px`);
+    if (width === 390) {
+      await mobile.getByRole("button", { name: "Switch to QA Engineer" }).click();
+      await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && !document.querySelector("canvas[data-persona-transition]"));
+      await mobile.getByRole("button", { name: "Switch to Full Stack Engineer" }).evaluate((button) => {
+        button.click();
+        button.click();
+      });
+      await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+      if (!new URLSearchParams(await mobile.evaluate(() => location.search)).get("persona")?.includes("fullstack")) failures.push("Rapid repeated activation corrupted persona URL");
+    }
+    results.interactions.push(`Mobile menu keyboard/touch persona switching and scroll restoration ${width}px`);
+    await mobile.close();
+  }
 
   if (results.errors.length) failures.push(`uncaught browser errors: ${results.errors.join(" | ")}`);
 } finally {
