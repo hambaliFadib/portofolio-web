@@ -9,11 +9,11 @@ concurrency:
   cancel-in-progress: true
 jobs:
   portfolio-quality-gate:
-    uses: hambaliFadib/playwright-portofolio-web/.github/workflows/cross-repo-quality-gate.yml@e29770616a70d6b4a7b1c5803636177fbc8c2c8b
+    uses: hambaliFadib/playwright-portofolio-web/.github/workflows/cross-repo-quality-gate.yml@b5fb14b433dccd1d625c667b4cb596c98dbe102f
     permissions:
       contents: read
     with:
       application_repository: ${{ github.repository }}
       application_test_sha: ${{ github.sha }}
       application_pr_head_sha: ${{ github.event.pull_request.head.sha }}
-      qa_source_sha: e29770616a70d6b4a7b1c5803636177fbc8c2c8b
+      qa_source_sha: b5fb14b433dccd1d625c667b4cb596c98dbe102f
