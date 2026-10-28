@@ -146,10 +146,12 @@ export function IdentityProvider({
   const [persona, setPersona] = useState(initialPersona);
   const [appearanceState, setAppearanceState] = useState(initialAppearance);
   const appearance = appearanceState;
+  const appearanceRef = useRef(initialAppearance);
   const [transitioning, setTransitioning] = useState(false);
   const busy = useRef(false);
   const cancelAnimation = useRef<(() => void) | null>(null);
   const setAppearance = useCallback((next: Appearance) => {
+    appearanceRef.current = next;
     setAppearanceState(next);
     persistAppearance(next);
     applyUrl(persona, next, { replace: true });
@@ -164,6 +166,7 @@ export function IdentityProvider({
     if (!storedAppearance) return;
 
     queueMicrotask(() => {
+      appearanceRef.current = storedAppearance;
       setAppearanceState(storedAppearance);
       persistAppearance(storedAppearance);
       applyUrl(initialPersona, storedAppearance, { replace: true });
@@ -173,11 +176,13 @@ export function IdentityProvider({
   const switchPersona = useCallback(() => {
     if (busy.current) return;
     const destination = persona === "qa" ? "fullstack" : "qa";
+    const currentAppearance = appearanceRef.current;
+    window.dispatchEvent(new Event("portfolio-identity-navigation-start"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       (document.activeElement as HTMLElement | null)?.blur();
       setPersona(destination);
-      applyUrl(destination, appearance, { home: true });
+      applyUrl(destination, currentAppearance, { home: true });
       window.scrollTo({ top: 0, behavior: "instant" });
       requestAnimationFrame(() => document.querySelector<HTMLElement>("#top h1")?.focus({ preventScroll: true }));
       return;
@@ -196,7 +201,7 @@ export function IdentityProvider({
     let cleanupTimer = 0;
     const finish = window.setTimeout(() => {
       setPersona(destination);
-      applyUrl(destination, appearance, { home: true });
+      applyUrl(destination, currentAppearance, { home: true });
       window.scrollTo({ top: 0, behavior: "instant" });
       cleanupTimer = window.setTimeout(() => {
         cancelAnimation.current?.();
@@ -213,7 +218,7 @@ export function IdentityProvider({
       stopFrame();
       canvas.remove();
     };
-  }, [appearance, persona]);
+  }, [persona]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -225,6 +230,7 @@ export function IdentityProvider({
 
   useEffect(() => {
     const sync = () => {
+      window.dispatchEvent(new Event("portfolio-identity-navigation-start"));
       cancelAnimation.current?.();
       busy.current = false;
       setTransitioning(false);
@@ -238,6 +244,7 @@ export function IdentityProvider({
           ? historyAppearance
           : getStoredAppearance() ?? "dark";
       setPersona(nextPersona);
+      appearanceRef.current = nextAppearance;
       setAppearanceState(nextAppearance);
     };
     window.addEventListener("popstate", sync);

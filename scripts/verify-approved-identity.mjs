@@ -322,6 +322,42 @@ try {
   await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
   await fallbackHistory.close();
 
+  // P2-04: a persona switch cancels an uncommitted theme reveal and preserves an already committed one.
+  const pendingThemeSwitch = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  observe(pendingThemeSwitch, "Pending theme/persona transition");
+  await pendingThemeSwitch.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
+  await pendingThemeSwitch.locator("[data-theme-toggle]").click();
+  await pendingThemeSwitch.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await pendingThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+  if (await pendingThemeSwitch.locator("html").getAttribute("data-appearance") !== "dark" || !new URLSearchParams(await pendingThemeSwitch.evaluate(() => location.search)).toString().includes("theme=dark")) failures.push("Uncommitted theme reveal changed appearance during persona transition");
+  if (await pendingThemeSwitch.locator("html").evaluate((root) => root.classList.contains("theme-transitioning"))) failures.push("Persona switch left a theme-transition overlay active");
+  await pendingThemeSwitch.close();
+
+  const committedThemeSwitch = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  observe(committedThemeSwitch, "Committed theme/persona transition");
+  await committedThemeSwitch.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
+  await committedThemeSwitch.locator("[data-theme-toggle]").click();
+  await committedThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light" && new URLSearchParams(location.search).get("theme") === "light");
+  await committedThemeSwitch.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await committedThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+  if (await committedThemeSwitch.locator(".identity-surface").getAttribute("data-appearance") !== "light" || !new URLSearchParams(await committedThemeSwitch.evaluate(() => location.search)).toString().includes("theme=light")) failures.push("Committed theme was lost during persona transition");
+  await committedThemeSwitch.close();
+
+  const historyThemeSwitch = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  observe(historyThemeSwitch, "Pending theme/history transition");
+  await historyThemeSwitch.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
+  await historyThemeSwitch.evaluate(() => {
+    window.history.pushState({ persona: "qa", appearance: "dark" }, "", "/?persona=qa&theme=dark");
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
+  });
+  await historyThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  await historyThemeSwitch.locator("[data-theme-toggle]").click();
+  await historyThemeSwitch.goBack();
+  await historyThemeSwitch.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "light" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light");
+  await historyThemeSwitch.waitForFunction(() => !document.documentElement.classList.contains("theme-transitioning"));
+  await historyThemeSwitch.close();
+  results.interactions.push("Pending and committed theme changes serialize with persona switching");
+
   for (const theme of ["light", "dark"]) {
     const explicit = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await explicit.context().addCookies([{ name: "theme", value: theme === "light" ? "dark" : "light", url: origin }]);

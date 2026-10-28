@@ -392,6 +392,20 @@ export function ThemeToggle({ className }: { className?: string }) {
     resetToTheme(wasOpening ? target : sceneRef.current.from);
   });
 
+  const handlePersonaSwitchStart = useEffectEvent(() => {
+    operationRef.current += 1;
+    pointerInsideRef.current = false;
+    cancelAnimation();
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    const resolve = resolveSettleRef.current;
+    resolveSettleRef.current = null;
+    resolve?.();
+    resetToTheme(themeRef.current);
+  });
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     mountedRef.current = true;
@@ -401,11 +415,13 @@ export function ThemeToggle({ className }: { className?: string }) {
       handleReducedMotionChange(event.matches);
     };
     media.addEventListener("change", handleChange);
+    window.addEventListener("portfolio-identity-navigation-start", handlePersonaSwitchStart);
 
     return () => {
       mountedRef.current = false;
       operationRef.current += 1;
       media.removeEventListener("change", handleChange);
+      window.removeEventListener("portfolio-identity-navigation-start", handlePersonaSwitchStart);
       cancelAnimation();
       if (settleTimerRef.current !== null) {
         window.clearTimeout(settleTimerRef.current);
