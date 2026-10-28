@@ -270,12 +270,12 @@ try {
   await fresh.close();
 
   const storedLight = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await storedLight.context().addCookies([{ name: "theme", value: "light", url: origin }]);
   await storedLight.addInitScript(() => localStorage.setItem("theme", "light"));
   observe(storedLight, "Stored Light fallback");
   await storedLight.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
-  await storedLight.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light");
+  await storedLight.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light" && new URLSearchParams(location.search).get("theme") === "light");
   if (await storedLight.locator("html").getAttribute("data-appearance") !== "light" || await storedLight.locator("html").evaluate((element) => !element.classList.contains("light"))) failures.push("Stored Light preference did not initialize Light");
+  if (!(await storedLight.evaluate(() => document.cookie.split("; ").includes("theme=light")))) failures.push("Legacy localStorage preference was not migrated to the SSR cookie");
   await storedLight.close();
 
   const fallbackHistory = await browser.newPage({ viewport: { width: 1280, height: 800 } });

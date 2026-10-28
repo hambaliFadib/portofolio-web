@@ -155,6 +155,21 @@ export function IdentityProvider({
     applyUrl(persona, next, { replace: true });
   }, [persona]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlAppearance = params.get("theme");
+    if (urlAppearance === "light" || urlAppearance === "dark") return;
+
+    const storedAppearance = getStoredAppearance();
+    if (!storedAppearance) return;
+
+    queueMicrotask(() => {
+      setAppearanceState(storedAppearance);
+      persistAppearance(storedAppearance);
+      applyUrl(initialPersona, storedAppearance, { replace: true });
+    });
+  }, [initialPersona]);
+
   const switchPersona = useCallback(() => {
     if (busy.current) return;
     const destination = persona === "qa" ? "fullstack" : "qa";
