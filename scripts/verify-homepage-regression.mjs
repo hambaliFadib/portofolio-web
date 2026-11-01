@@ -55,7 +55,8 @@ export function verifyHomepageReport(report, expectedOrigin = "http://127.0.0.1:
     throw new Error("Homepage report must contain distinct desktop and mobile diagnostics.");
   }
   if (report.diagnostics.some((diagnostic) => !Array.isArray(diagnostic.browserErrors) || diagnostic.browserErrors.length > 0 ||
-      !Array.isArray(diagnostic.telemetryBlocked) || diagnostic.telemetryBlocked.some((event) => typeof event !== "string"))) {
+      !Array.isArray(diagnostic.telemetryBlocked) || diagnostic.telemetryBlocked.some((event) => typeof event !== "string") ||
+      !Array.isArray(diagnostic.expectedNavigationAborts) || diagnostic.expectedNavigationAborts.some((event) => typeof event !== "string"))) {
     throw new Error("Homepage report contains browser errors or malformed telemetry diagnostics.");
   }
   return { passed: expected.size, failed: 0, reportStatus: "verified" };

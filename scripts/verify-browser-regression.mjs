@@ -90,6 +90,7 @@ try {
   if (!Array.isArray(identity.firstPaint) || identity.firstPaint.length !== 16 ||
       !Array.isArray(identity.metadata) || identity.metadata.length < 17 ||
       !Array.isArray(identity.errors) || identity.errors.length ||
+      !Array.isArray(identity.expectedNavigationAborts) ||
       !Array.isArray(identity.failures) || identity.failures.length) {
     throw new Error('Identity/persona evidence has missing checks, browser errors, or failures.');
   }

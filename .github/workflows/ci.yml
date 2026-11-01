@@ -97,6 +97,7 @@ jobs:
               'scripts/verify-approved-identity.mjs',
               'scripts/browser-error-observer.mjs',
               'scripts/verify-homepage-regression.mjs',
+              'scripts/browser-error-observer.test.mjs',
               'scripts/check-feature-boundaries.mjs',
               'scripts/check-feature-boundaries.test.mjs',
               'design-preview/paper-reveal-b03/verify-cleanup-regression.mjs',
@@ -180,7 +181,9 @@ jobs:
       - name: Verify homepage evidence contract negative fixtures
         id: homepage_contract
         if: steps.profile.outputs.profile == 'modular'
-        run: node scripts/verify-homepage-regression.test.mjs
+        run: |
+          node scripts/verify-homepage-regression.test.mjs
+          node scripts/browser-error-observer.test.mjs
       - name: Run Theme Toggle, identity, homepage, navbar, and ASCII Lens regressions
         id: browser_regression
         if: steps.profile.outputs.profile == 'modular'

@@ -9,7 +9,16 @@ function isOptionalTelemetryUrl(value, origin) {
   }
 }
 
-export function observeBrowserErrors(page, { label, origin, errors, telemetryBlocked }) {
+function isExpectedNextFlightAbort(value, origin) {
+  try {
+    const url = new URL(value);
+    return url.origin === new URL(origin).origin && url.pathname === "/" && url.searchParams.has("_rsc");
+  } catch {
+    return false;
+  }
+}
+
+export function observeBrowserErrors(page, { label, origin, errors, telemetryBlocked, expectedNavigationAborts }) {
   page.on("pageerror", (error) => errors.push(`${label}: ${error.message}`));
 
   page.on("response", (response) => {
@@ -26,6 +35,10 @@ export function observeBrowserErrors(page, { label, origin, errors, telemetryBlo
     const details = `${label}: ${request.failure()?.errorText ?? "request failed"} ${request.url()}`;
     if (isOptionalTelemetryUrl(request.url(), origin)) {
       telemetryBlocked.push(details);
+      return;
+    }
+    if (request.failure()?.errorText === "net::ERR_ABORTED" && isExpectedNextFlightAbort(request.url(), origin)) {
+      expectedNavigationAborts.push(details);
       return;
     }
     errors.push(details);

@@ -16,6 +16,7 @@ const viewports = [
 const failures = [];
 const browserErrors = [];
 const telemetryBlocked = [];
+const expectedNavigationAborts = [];
 const checks = [];
 
 function check(name, passed, details = {}) {
@@ -24,7 +25,7 @@ function check(name, passed, details = {}) {
 }
 
 function observe(page, label) {
-  observeBrowserErrors(page, { label, origin, errors: browserErrors, telemetryBlocked });
+  observeBrowserErrors(page, { label, origin, errors: browserErrors, telemetryBlocked, expectedNavigationAborts });
 }
 
 async function openPage(persona, theme, viewport) {
@@ -139,6 +140,7 @@ const report = {
   checks,
   browserErrors,
   telemetryBlocked,
+  expectedNavigationAborts,
   failures,
 };
 await fs.writeFile(path.join(output, "theme-toggle-verification.json"), `${JSON.stringify(report, null, 2)}\n`);

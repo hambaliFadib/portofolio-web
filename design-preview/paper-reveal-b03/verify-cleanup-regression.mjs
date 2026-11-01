@@ -35,7 +35,8 @@ try {
     reliability.observe(page, viewport.name);
     const browserErrors = [];
     const telemetryBlocked = [];
-    observeBrowserErrors(page, { label: viewport.name, origin, errors: browserErrors, telemetryBlocked });
+    const expectedNavigationAborts = [];
+    observeBrowserErrors(page, { label: viewport.name, origin, errors: browserErrors, telemetryBlocked, expectedNavigationAborts });
     await page.addInitScript(() => {
       if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
       localStorage.setItem('portfolio-locale', 'id');
@@ -122,7 +123,7 @@ try {
     check(`${viewport.name}-ascii-lens-clears-on-pointer-exit`, await canvas.count() === 0, {});
 
     check(`${viewport.name}-no-unexpected-browser-errors`, browserErrors.length === 0, { browserErrors });
-    diagnostics.push({ viewport: viewport.name, browserErrors, telemetryBlocked });
+    diagnostics.push({ viewport: viewport.name, browserErrors, telemetryBlocked, expectedNavigationAborts });
     await context.close();
   }
 

@@ -9,8 +9,8 @@ const valid = () => ({
   browser: "Playwright Chromium", origin: "http://127.0.0.1:3000",
   counts: { passed: 16, failed: 0 },
   diagnostics: [
-    { viewport: "desktop", browserErrors: [], telemetryBlocked: [] },
-    { viewport: "mobile", browserErrors: [], telemetryBlocked: [] },
+    { viewport: "desktop", browserErrors: [], telemetryBlocked: [], expectedNavigationAborts: [] },
+    { viewport: "mobile", browserErrors: [], telemetryBlocked: [], expectedNavigationAborts: [] },
   ],
   checks: EXPECTED_HOMEPAGE_CHECKS.map(name => ({ name, passed: true })),
 });

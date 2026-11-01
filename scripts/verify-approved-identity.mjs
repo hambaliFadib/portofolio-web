@@ -22,10 +22,10 @@ const viewports = [
   { width: 320, height: 760 },
 ];
 const failures = [];
-const results = { firstPaint: [], metadata: [], journeys: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [] };
+const results = { firstPaint: [], metadata: [], journeys: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [], expectedNavigationAborts: [] };
 
 function observe(page, scope) {
-  observeBrowserErrors(page, { label: scope, origin, errors: results.errors, telemetryBlocked: results.telemetryBlocked });
+  observeBrowserErrors(page, { label: scope, origin, errors: results.errors, telemetryBlocked: results.telemetryBlocked, expectedNavigationAborts: results.expectedNavigationAborts });
 }
 
 async function waitForUrl(page, pattern, timeout = 5000) {
