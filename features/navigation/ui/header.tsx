@@ -77,6 +77,7 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const portalRoot = typeof document === "undefined" ? null : document.getElementById("portfolio-identity");
   const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null);
   const personaSwitchFrameRef = useRef<number | null>(null);
   const personaSwitchPendingRef = useRef(false);
@@ -197,8 +198,7 @@ export function Header() {
     }
   }, []);
 
-  // Lock body scroll, return focus to the toggle on close,
-  // and restore focus to the toggle when Escape is pressed.
+  // Keep keyboard focus inside the modal menu and restore it to its trigger.
   useEffect(() => {
     if (!mobileMenuOpen) {
       document.body.style.overflow = "";
@@ -206,12 +206,30 @@ export function Header() {
     }
 
     document.body.style.overflow = "hidden";
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     firstMenuItemRef.current?.focus();
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") {
         closeMenu();
         menuToggleRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const items = mobileMenuRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!items?.length) return;
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !mobileMenuRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !mobileMenuRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
@@ -219,6 +237,7 @@ export function Header() {
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, [mobileMenuOpen, closeMenu]);
 
@@ -230,7 +249,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 h-[68px] border-b border-border/60 bg-background/95">
       <nav
-        className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-6"
+          className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-6 lg:px-8"
         aria-label="Primary"
       >
         {/* Left — identity */}
@@ -242,9 +261,13 @@ export function Header() {
           className="group flex min-w-0 cursor-pointer flex-col items-start rounded-md bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={handlePersonaSwitch}
         >
-          <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
-          <span className="mt-1 hidden font-mono text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground/80 sm:block">
-            {persona === "qa" ? "QA ENGINEER" : "FULL STACK ENGINEER"}
+          <span className="flex items-center gap-2">
+            <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
+            <span aria-hidden="true" className="text-xs text-coral transition-transform group-hover:translate-x-0.5">↔</span>
+          </span>
+          <span className="mt-1 flex items-center gap-1.5 font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/80">
+            <span>{persona === "qa" ? "QA ENGINEER" : "FULL STACK ENGINEER"}</span>
+            <span aria-hidden="true" className="text-coral">· switch</span>
           </span>
         </button>
 
@@ -296,7 +319,7 @@ export function Header() {
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
             aria-controls="primary-mobile-menu"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md text-foreground transition-colors duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
             onClick={() => setMobileMenuOpen((open) => !open)}
           >
             {mobileMenuOpen ? (
@@ -312,6 +335,7 @@ export function Header() {
       {mobileMenuOpen && portalRoot && createPortal((
         <div
           id="primary-mobile-menu"
+          ref={mobileMenuRef}
           role="dialog"
           aria-modal="true"
           aria-label="Site navigation"

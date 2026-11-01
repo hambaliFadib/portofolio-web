@@ -10,6 +10,7 @@ export const EXPECTED_HOMEPAGE_CHECKS = Object.freeze([
   "desktop-navigation-and-cta-anchor-targets-exist",
   "desktop-ascii-lens-zooms-and-follows-pointer",
   "desktop-ascii-lens-clears-on-pointer-exit",
+  "desktop-no-unexpected-browser-errors",
   "mobile-english-only-content-ignores-legacy-locale",
   "mobile-hero-and-portrait-render",
   "mobile-responsive-hero-columns",
@@ -17,6 +18,7 @@ export const EXPECTED_HOMEPAGE_CHECKS = Object.freeze([
   "mobile-navigation-and-cta-anchor-targets-exist",
   "mobile-ascii-lens-zooms-and-follows-pointer",
   "mobile-ascii-lens-clears-on-pointer-exit",
+  "mobile-no-unexpected-browser-errors",
 ]);
 
 export function verifyHomepageReport(report, expectedOrigin = "http://127.0.0.1:3000") {
@@ -27,7 +29,7 @@ export function verifyHomepageReport(report, expectedOrigin = "http://127.0.0.1:
     throw new Error("Homepage report browser or tested origin does not match the expected runtime.");
   }
   if (!Array.isArray(report.checks) || report.checks.length !== EXPECTED_HOMEPAGE_CHECKS.length) {
-    throw new Error("Homepage report must contain exactly fourteen checks.");
+    throw new Error("Homepage report must contain exactly sixteen checks.");
   }
   const names = new Set();
   const expected = new Set(EXPECTED_HOMEPAGE_CHECKS);
@@ -52,6 +54,10 @@ export function verifyHomepageReport(report, expectedOrigin = "http://127.0.0.1:
       !report.diagnostics.some((d) => d?.viewport === "mobile")) {
     throw new Error("Homepage report must contain distinct desktop and mobile diagnostics.");
   }
+  if (report.diagnostics.some((diagnostic) => !Array.isArray(diagnostic.browserErrors) || diagnostic.browserErrors.length > 0 ||
+      !Array.isArray(diagnostic.telemetryBlocked) || diagnostic.telemetryBlocked.some((event) => typeof event !== "string"))) {
+    throw new Error("Homepage report contains browser errors or malformed telemetry diagnostics.");
+  }
   return { passed: expected.size, failed: 0, reportStatus: "verified" };
 }
 
@@ -75,7 +81,7 @@ export function readAndVerifyHomepageReport(filename, expectedOrigin) {
 function main() {
   const filename = process.argv[2];
   if (!filename) throw new Error("Usage: node scripts/verify-homepage-regression.mjs <report.json>");
-  const result = readAndVerifyHomepageReport(filename, process.env.B03_PREVIEW_URL || "http://127.0.0.1:3000");
+  const result = readAndVerifyHomepageReport(filename, process.env.PORTFOLIO_PREVIEW_URL || process.env.B03_PREVIEW_URL || "http://127.0.0.1:3000");
   console.log("Homepage regression: " + JSON.stringify(result));
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

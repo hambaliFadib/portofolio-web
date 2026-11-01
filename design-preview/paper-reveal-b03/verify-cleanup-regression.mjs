@@ -1,13 +1,15 @@
 import { chromium } from 'playwright';
 import { createReliabilityObserver } from './reliability-observer.mjs';
+import { observeBrowserErrors } from '../../scripts/browser-error-observer.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const origin = process.env.B03_PREVIEW_URL ?? 'http://127.0.0.1:3000';
-const output = process.env.B03_HOMEPAGE_OUTPUT_DIR
-  ? path.resolve(process.env.B03_HOMEPAGE_OUTPUT_DIR)
+const origin = process.env.PORTFOLIO_PREVIEW_URL ?? process.env.B03_PREVIEW_URL ?? 'http://127.0.0.1:3000';
+const homepageOutput = process.env.PORTFOLIO_HOMEPAGE_OUTPUT_DIR ?? process.env.B03_HOMEPAGE_OUTPUT_DIR;
+const output = homepageOutput
+  ? path.resolve(homepageOutput)
   : path.join(here, 'captures', 'cleanup-final');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -31,9 +33,9 @@ try {
     const page = await context.newPage();
     lastPage = page;
     reliability.observe(page, viewport.name);
-    const errors = [];
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+    const browserErrors = [];
+    const telemetryBlocked = [];
+    observeBrowserErrors(page, { label: viewport.name, origin, errors: browserErrors, telemetryBlocked });
     await page.addInitScript(() => {
       if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
       localStorage.setItem('portfolio-locale', 'id');
@@ -95,6 +97,9 @@ try {
 
     await image.scrollIntoViewIfNeeded();
     const box = await image.boundingBox();
+    const lensContainer = page.locator('[data-ascii-lens]');
+    const lensBox = await lensContainer.boundingBox();
+    const expectedLensDiameter = Math.round(Math.min(180, lensBox.width * 0.55));
     await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.46);
     const canvas = page.locator('[data-ascii-lens] canvas');
     await reliability.measure(viewport.name+'-ascii-canvas-visible', page, () => canvas.waitFor({ state: 'visible', timeout: 3_000 }));
@@ -111,21 +116,22 @@ try {
     await page.waitForFunction(previous => document.querySelector('[data-ascii-lens] canvas')?.toDataURL() !== previous, first.dataUrl, { timeout: 3_000 });
     const moved = await canvas.evaluate(element => ({ width: element.width, height: element.height, dataUrl: element.toDataURL() }));
     await reliability.measure(viewport.name+'-ascii-screenshot', page, () => page.screenshot({ path: path.join(output, `${viewport.name}-ascii-lens-hover.png`), animations: 'disabled' }));
-    check(`${viewport.name}-ascii-lens-zooms-and-follows-pointer`, first.width === 180 && first.height === 180 && first.alphaPixels > 10_000 && first.colorVariety > 10 && moved.dataUrl !== first.dataUrl, { initial: { width: first.width, height: first.height, alphaPixels: first.alphaPixels, colorVariety: first.colorVariety }, changedAfterPointerMove: moved.dataUrl !== first.dataUrl });
+    check(`${viewport.name}-ascii-lens-zooms-and-follows-pointer`, first.width === expectedLensDiameter && first.height === expectedLensDiameter && first.alphaPixels > 10_000 && first.colorVariety > 10 && moved.dataUrl !== first.dataUrl, { portraitWidth: box.width, lensContainerWidth: lensBox.width, expectedLensDiameter, initial: { width: first.width, height: first.height, alphaPixels: first.alphaPixels, colorVariety: first.colorVariety }, changedAfterPointerMove: moved.dataUrl !== first.dataUrl });
     await page.mouse.move(10, 100);
     await page.waitForFunction(() => !document.querySelector('[data-ascii-lens] canvas'));
     check(`${viewport.name}-ascii-lens-clears-on-pointer-exit`, await canvas.count() === 0, {});
 
-    diagnostics.push({ viewport: viewport.name, consoleErrors: errors.map(message => message.split('\n')[0]) });
+    check(`${viewport.name}-no-unexpected-browser-errors`, browserErrors.length === 0, { browserErrors });
+    diagnostics.push({ viewport: viewport.name, browserErrors, telemetryBlocked });
     await context.close();
   }
 
   const missing = checks.filter(item => !item.passed);
-  const report = { generatedAt: new Date().toISOString(), origin, browser: 'Playwright Chromium', checks, diagnostics, counts: { passed: checks.filter(item => item.passed).length, failed: missing.length }, note: 'Missing anchor targets reflect the current source shape: app/page.tsx renders DarkEditorialHero, which only defines #top. No route or navigation source was changed by repository cleanup.' };
+  const report = { generatedAt: new Date().toISOString(), origin, browser: 'Playwright Chromium', checks, diagnostics, counts: { passed: checks.filter(item => item.passed).length, failed: missing.length }, note: 'The page remains a single-page portfolio; diagnostics fail on any application console, HTTP, or request error. Only an exact same-origin Vercel Insights 404 is classified as optional telemetry.' };
   await fs.writeFile(path.join(output, 'repository-regression.json'), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify({ counts: report.counts, failed: missing, diagnostics, output: path.join(output, 'repository-regression.json') }, null, 2));
   // Every homepage assertion is authoritative; no special exemption for missing anchors.
-  if (checks.length !== 14 || missing.length !== 0) process.exitCode = 1;
+  if (checks.length !== 16 || missing.length !== 0) process.exitCode = 1;
  } catch (error) {
   console.error('homepage regression interrupted:', error?.message);
   process.exitCode = 1;

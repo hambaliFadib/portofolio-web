@@ -17,7 +17,7 @@ jobs:
     env:
       TEST_SHA: ${{ github.sha }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
-      B03_PREVIEW_URL: http://127.0.0.1:3000
+      PORTFOLIO_PREVIEW_URL: http://127.0.0.1:3000
     steps:
       - name: Checkout exact tested revision
         id: checkout
@@ -71,8 +71,6 @@ jobs:
             has('scripts'),
             has('scripts/check-feature-boundaries.mjs'),
             has('scripts/check-feature-boundaries.test.mjs'),
-            has('design-preview/paper-reveal-b03'),
-            has('design-preview/paper-reveal-b03/verify-production.mjs'),
             Boolean(pkg.scripts?.['test:feature-boundaries']),
             Boolean(pkg.scripts?.['verify:browser']),
             Boolean(pkg.devDependencies?.playwright || pkg.dependencies?.playwright),
@@ -95,9 +93,12 @@ jobs:
               'features/home/ui/dark-editorial-hero.tsx',
               'features/theme/ui/theme-toggle.tsx',
               'scripts/verify-browser-regression.mjs',
+              'scripts/verify-theme-toggle.mjs',
+              'scripts/verify-approved-identity.mjs',
+              'scripts/browser-error-observer.mjs',
+              'scripts/verify-homepage-regression.mjs',
               'scripts/check-feature-boundaries.mjs',
               'scripts/check-feature-boundaries.test.mjs',
-              'design-preview/paper-reveal-b03/verify-production.mjs',
               'design-preview/paper-reveal-b03/verify-cleanup-regression.mjs',
             ]);
             if (pkg.scripts['test:feature-boundaries'] !== 'node scripts/check-feature-boundaries.test.mjs') {
@@ -158,7 +159,7 @@ jobs:
           node <<'NODE'
           (async () => {
             const deadline = Date.now() + 60000;
-            const url = process.env.B03_PREVIEW_URL;
+            const url = process.env.PORTFOLIO_PREVIEW_URL;
             let lastError = 'no response';
             while (Date.now() < deadline) {
               try {
@@ -176,112 +177,23 @@ jobs:
             throw new Error('Production server health check timed out: ' + lastError);
           })().catch((error) => { console.error(error); process.exitCode = 1; });
           NODE
-      - name: Verify bounded failure-snapshot contract
-        id: reliability_selftest
-        if: steps.profile.outputs.profile == 'modular'
-        run: node design-preview/paper-reveal-b03/reliability-observer.test.mjs
-      - name: Run established B03 Theme Reveal production checks
-        id: b03
-        if: steps.profile.outputs.profile == 'modular'
-        shell: bash
-        run: |
-          export B03_PRODUCTION_OUTPUT_DIR="$CI_EVIDENCE_DIR/b03"
-          export B03_PRODUCTION_FRAMES_DIR="$CI_EVIDENCE_DIR/b03/frames"
-          node design-preview/paper-reveal-b03/verify-production.mjs
-      - name: Require B03 report and frame evidence
-        id: b03_evidence
-        if: steps.profile.outputs.profile == 'modular'
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = require('node:path');
-          const root = path.join(process.env.CI_EVIDENCE_DIR, 'b03');
-          const reportPath = path.join(root, 'production-verification.json');
-          if (!fs.existsSync(reportPath)) throw new Error('B03 verification report is missing.');
-          if (fs.statSync(reportPath).size === 0) throw new Error('B03 verification report is empty.');
-          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-          if (!report || typeof report !== 'object' || !Array.isArray(report.checks)) {
-            throw new Error('B03 report has a malformed checks list.');
-          }
-          if (report.checks.length !== 31) {
-            throw new Error('Expected exactly 31 B03 checks; found ' + report.checks.length + '.');
-          }
-          const names = new Set();
-          for (const [index, check] of report.checks.entries()) {
-            if (!check || typeof check !== 'object' ||
-                typeof check.name !== 'string' || check.name.trim() === '' ||
-                check.name !== check.name.trim() || typeof check.passed !== 'boolean') {
-              throw new Error('Malformed B03 check at index ' + index + '.');
-            }
-            if (names.has(check.name)) throw new Error('Duplicate B03 check name: ' + check.name);
-            names.add(check.name);
-          }
-          const passed = report.checks.filter((check) => check.passed).length;
-          const failed = report.checks.length - passed;
-          if (!report.counts || report.counts.passed !== 31 || report.counts.failed !== 0 ||
-              passed !== 31 || failed !== 0) {
-            throw new Error('B03 report has failed or inconsistent counts: ' +
-              JSON.stringify({ reported: report.counts, observed: { passed, failed } }));
-          }
-          const frames = path.join(root, 'frames');
-          const required = [
-            'dark-idle-click-theme-reveal.png',
-            'light-idle-click-theme-reveal.png',
-            'dark-hover-click-theme-reveal.png',
-            'light-hover-click-theme-reveal.png',
-          ];
-          for (const name of required) {
-            const file = path.join(frames, name);
-            if (!fs.existsSync(file)) throw new Error('Required B03 frame evidence is missing: ' + name);
-            const stat = fs.statSync(file);
-            if (!stat.isFile() || stat.size === 0) {
-              throw new Error('Required B03 frame evidence is empty or not a file: ' + name);
-            }
-            const signature = Buffer.alloc(8);
-            const fd = fs.openSync(file, 'r');
-            try {
-              if (fs.readSync(fd, signature, 0, signature.length, 0) !== signature.length ||
-                  !signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
-                throw new Error('Required B03 frame is not a complete PNG file: ' + name);
-              }
-            } finally {
-              fs.closeSync(fd);
-            }
-          }
-          console.log('B03 report: ' + passed + ' passed, ' + failed + ' failed; unique names verified.');
-          console.log('Four required nonempty PNG frame captures verified.');
-          NODE
-      - name: Upload B03 reliability and frame evidence
-        if: always() && steps.evidence_dir.outcome == 'success'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: portfolio-ci-b03-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ steps.evidence_dir.outputs.path }}/b03/
-          if-no-files-found: warn
-          retention-days: 14
       - name: Verify homepage evidence contract negative fixtures
         id: homepage_contract
         if: steps.profile.outputs.profile == 'modular'
         run: node scripts/verify-homepage-regression.test.mjs
-      - name: Run homepage regression against exact production build
-        id: homepage
+      - name: Run Theme Toggle, identity, homepage, navbar, and ASCII Lens regressions
+        id: browser_regression
         if: steps.profile.outputs.profile == 'modular'
         env:
-          B03_HOMEPAGE_OUTPUT_DIR: ${{ steps.evidence_dir.outputs.path }}/homepage
-        run: node design-preview/paper-reveal-b03/verify-cleanup-regression.mjs
-      - name: Require fourteen verified homepage checks
-        id: homepage_evidence
-        if: steps.profile.outputs.profile == 'modular'
-        env:
-          REPORT: ${{ steps.evidence_dir.outputs.path }}/homepage/repository-regression.json
-        run: node scripts/verify-homepage-regression.mjs "$REPORT"
-      - name: Upload homepage regression evidence
+          CI_EVIDENCE_DIR: ${{ steps.evidence_dir.outputs.path }}
+          PORTFOLIO_BROWSER_OUTPUT_DIR: ${{ steps.evidence_dir.outputs.path }}/browser-regression
+        run: npm run verify:browser
+      - name: Upload browser regression evidence
         if: always() && steps.evidence_dir.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: portfolio-ci-homepage-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ steps.evidence_dir.outputs.path }}/homepage/
+          name: portfolio-ci-browser-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.evidence_dir.outputs.path }}/browser-regression/
           if-no-files-found: warn
           retention-days: 14
       - name: Stop only the owned production server
@@ -325,11 +237,8 @@ jobs:
           BOUNDARIES: ${{ steps.boundaries.outcome }}
           CHROMIUM: ${{ steps.chromium.outcome }}
           HEALTH: ${{ steps.health.outcome }}
-          B03: ${{ steps.b03.outcome }}
-          B03_EVIDENCE: ${{ steps.b03_evidence.outcome }}
           HOMEPAGE_CONTRACT: ${{ steps.homepage_contract.outcome }}
-          HOMEPAGE: ${{ steps.homepage.outcome }}
-          HOMEPAGE_EVIDENCE: ${{ steps.homepage_evidence.outcome }}
+          BROWSER_REGRESSION: ${{ steps.browser_regression.outcome }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -350,11 +259,8 @@ jobs:
             ['Feature-boundary deterministic test', status('BOUNDARIES', profile !== 'legacy')],
             ['Chromium provisioning', status('CHROMIUM', profile !== 'legacy')],
             ['Production-server health', status('HEALTH', profile !== 'legacy')],
-            ['B03 production verifier', status('B03', profile !== 'legacy')],
-            ['B03 report and frames', status('B03_EVIDENCE', profile !== 'legacy')],
             ['Homepage regression contract', status('HOMEPAGE_CONTRACT', profile !== 'legacy')],
-            ['Homepage regression execution (14 checks)', status('HOMEPAGE', profile !== 'legacy')],
-            ['Homepage regression evidence (14/14)', status('HOMEPAGE_EVIDENCE', profile !== 'legacy')],
+            ['Theme Toggle, identity, homepage, navbar, ASCII Lens browser regressions', status('BROWSER_REGRESSION', profile !== 'legacy')],
             ['Additional deterministic tests', profile === 'legacy' ? 'NOT APPLICABLE — no deterministic test runner declared' : profile === 'modular' ? 'No separate unit-test script declared' : 'NOT DETERMINED — profile classification failed'],
           ];
           let summary = '# Portfolio CI\n\n- Source profile: **' + profile + '**\n- Runtime: Node.js 22 on ubuntu-latest\n\n| Check | Result |\n|---|---|\n';
