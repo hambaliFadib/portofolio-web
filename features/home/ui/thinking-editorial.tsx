@@ -38,7 +38,7 @@ export function ThinkingEditorial() {
               Inspect the reasoning
             </p>
             <p className="mt-5 max-w-sm font-display text-2xl font-medium leading-snug tracking-tight text-foreground sm:text-3xl">
-              A passed check doesn't close a question.
+              A passed check doesn&apos;t close a question.
             </p>
             <p className="mt-4 max-w-sm text-sm leading-7 text-muted-foreground">
               Expand a principle to see the distinction that matters before a release decision.
