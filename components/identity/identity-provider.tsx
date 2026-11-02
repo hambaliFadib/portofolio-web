@@ -10,9 +10,14 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
+import { flushSync } from "react-dom";
 
 export type Persona = "qa" | "fullstack";
 export type Appearance = "light" | "dark";
+export type PersonaTransitionStage = "idle" | "introduce" | "dissolve";
+
+export const PERSONA_EXIT_DURATION_MS = 100;
+export const PERSONA_ENTER_DURATION_MS = 200;
 
 type IdentityValue = {
   persona: Persona;
@@ -20,10 +25,10 @@ type IdentityValue = {
   setAppearance: (value: Appearance) => void;
   switchPersona: () => void;
   transitioning: boolean;
+  transitionStage: PersonaTransitionStage;
 };
 
 const IdentityContext = createContext<IdentityValue | null>(null);
-const GLYPHS = "{}[]<>/\\*+=:;._# qa() =>";
 
 function applyUrl(persona: Persona, appearance: Appearance, options: { replace?: boolean; home?: boolean } = {}) {
   const url = new URL(window.location.href);
@@ -59,85 +64,6 @@ function getStoredAppearance(): Appearance | null {
   }
 }
 
-function drawFragments(canvas: HTMLCanvasElement) {
-  const context = canvas.getContext("2d");
-  if (!context) return () => {};
-
-  let width = window.innerWidth;
-  let height = window.innerHeight;
-  let ratio = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(2_400_000 / (width * height)));
-  const baseWidth = width;
-  const baseHeight = height;
-  const resize = () => {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    ratio = Math.min(window.devicePixelRatio || 1, 1.5, Math.sqrt(2_400_000 / (width * height)));
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.font = "600 11px ui-monospace, monospace";
-    context.textBaseline = "middle";
-  };
-  resize();
-  window.addEventListener("resize", resize);
-
-  const headerBottom = document.querySelector("header")?.getBoundingClientRect().bottom ?? 68;
-  const textRects: DOMRect[] = [];
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode() && textRects.length < 420) {
-    const node = walker.currentNode;
-    if (!node.textContent?.trim() || node.parentElement?.closest("header,[aria-hidden=true],script,style")) continue;
-    const style = getComputedStyle(node.parentElement ?? document.body);
-    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) < 0.08) continue;
-    const range = document.createRange();
-    range.selectNodeContents(node);
-    for (const rect of Array.from(range.getClientRects())) {
-      if (rect.width && rect.height && rect.bottom > headerBottom && rect.top < height && rect.right > 0 && rect.left < width) textRects.push(rect);
-    }
-  }
-
-  const fragments = textRects.flatMap((rect, index) => {
-    const count = Math.max(1, Math.min(5, Math.ceil(rect.width / 54)));
-    const left = Math.max(0, rect.left);
-    const visibleWidth = Math.max(0, Math.min(width, rect.right) - left);
-    return Array.from({ length: count }, (_, n) => ({
-      x: Math.max(4, Math.min(width - 14, left + ((n + 0.5) / count) * visibleWidth)),
-      y: Math.max(headerBottom + 3, Math.min(height - 4, rect.top + rect.height / 2)),
-      glyph: GLYPHS[(index * 7 + n * 11) % GLYPHS.length],
-      driftX: ((index * 17 + n * 31) % 49) - 24,
-      driftY: -18 - ((index * 13 + n * 19) % 54),
-    }));
-  }).slice(0, 205);
-
-  const surface = document.querySelector(".identity-surface") ?? document.body;
-  const computed = getComputedStyle(surface);
-  const color = computed.getPropertyValue("--identity-accent").trim() || "#3554D7";
-  const surfaceColor = computed.backgroundColor;
-  const started = performance.now();
-  let frame = 0;
-  const paint = (now: number) => {
-    const progress = Math.min(1, (now - started) / 690);
-    context.clearRect(0, 0, width, height);
-    context.fillStyle = surfaceColor;
-    context.globalAlpha = Math.min(0.96, progress / 0.42);
-    context.fillRect(0, 0, width, height);
-    context.fillStyle = color;
-    context.globalAlpha = 0.9;
-    for (const particle of fragments) {
-      context.globalAlpha = Math.max(0, 0.9 * (1 - progress));
-      context.fillText(particle.glyph, particle.x * width / baseWidth + particle.driftX * progress, particle.y * height / baseHeight + particle.driftY * progress);
-    }
-    if (progress < 1) frame = requestAnimationFrame(paint);
-  };
-  frame = requestAnimationFrame(paint);
-  return () => {
-    window.removeEventListener("resize", resize);
-    cancelAnimationFrame(frame);
-  };
-}
-
 export function IdentityProvider({
   children,
   initialPersona,
@@ -148,30 +74,17 @@ export function IdentityProvider({
   const appearance = appearanceState;
   const appearanceRef = useRef(initialAppearance);
   const [transitioning, setTransitioning] = useState(false);
+  const [transitionStage, setTransitionStage] = useState<PersonaTransitionStage>("idle");
   const busy = useRef(false);
   const cancelAnimation = useRef<(() => void) | null>(null);
+  const transitionGeneration = useRef(0);
+  const focusHeroAfterTransition = useRef(false);
   const setAppearance = useCallback((next: Appearance) => {
     appearanceRef.current = next;
     setAppearanceState(next);
     persistAppearance(next);
     applyUrl(persona, next, { replace: true });
   }, [persona]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlAppearance = params.get("theme");
-    if (urlAppearance === "light" || urlAppearance === "dark") return;
-
-    const storedAppearance = getStoredAppearance();
-    if (!storedAppearance) return;
-
-    queueMicrotask(() => {
-      appearanceRef.current = storedAppearance;
-      setAppearanceState(storedAppearance);
-      persistAppearance(storedAppearance);
-      applyUrl(initialPersona, storedAppearance, { replace: true });
-    });
-  }, [initialPersona]);
 
   const switchPersona = useCallback(() => {
     if (busy.current) return;
@@ -180,6 +93,7 @@ export function IdentityProvider({
     window.dispatchEvent(new Event("portfolio-identity-navigation-start"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
+      setTransitionStage("idle");
       (document.activeElement as HTMLElement | null)?.blur();
       setPersona(destination);
       applyUrl(destination, currentAppearance, { home: true });
@@ -189,35 +103,62 @@ export function IdentityProvider({
     }
 
     busy.current = true;
+    setTransitionStage("introduce");
     (document.activeElement as HTMLElement | null)?.blur();
     setTransitioning(true);
-    const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-hidden", "true");
-    canvas.dataset.personaTransition = "true";
-    Object.assign(canvas.style, { position: "fixed", inset: "0", zIndex: "60", pointerEvents: "none" });
-    document.body.append(canvas);
-    const stopFrame = drawFragments(canvas);
+    const generation = ++transitionGeneration.current;
+    const surface = document.querySelector<HTMLElement>(".identity-surface");
+    let exitAnimation: Animation | null = null;
+    let enterAnimation: Animation | null = null;
 
-    let cleanupTimer = 0;
-    const finish = window.setTimeout(() => {
-      setPersona(destination);
+    const finish = () => {
+      if (generation !== transitionGeneration.current) return;
+      cancelAnimation.current = null;
+      busy.current = false;
+      setTransitionStage("idle");
+      focusHeroAfterTransition.current = true;
+      setTransitioning(false);
+    };
+
+    cancelAnimation.current = () => {
+      transitionGeneration.current += 1;
+      exitAnimation?.cancel();
+      enterAnimation?.cancel();
+    };
+
+    if (!surface?.animate) {
+      flushSync(() => {
+        setPersona(destination);
+        setTransitionStage("idle");
+      });
       applyUrl(destination, currentAppearance, { home: true });
       window.scrollTo({ top: 0, behavior: "instant" });
-      cleanupTimer = window.setTimeout(() => {
-        cancelAnimation.current?.();
-        canvas.remove();
-        cancelAnimation.current = null;
-        busy.current = false;
-        setTransitioning(false);
-        document.querySelector<HTMLElement>("#top h1")?.focus({ preventScroll: true });
-      }, 360);
-    }, 370);
-    cancelAnimation.current = () => {
-      window.clearTimeout(finish);
-      window.clearTimeout(cleanupTimer);
-      stopFrame();
-      canvas.remove();
-    };
+      finish();
+      return;
+    }
+
+    exitAnimation = surface.animate(
+      [{ opacity: 1 }, { opacity: 0.84 }],
+      { duration: PERSONA_EXIT_DURATION_MS, easing: "ease-in", fill: "both" },
+    );
+
+    void exitAnimation.finished.then(() => {
+      if (generation !== transitionGeneration.current) return;
+      flushSync(() => {
+        setPersona(destination);
+        setTransitionStage("dissolve");
+      });
+      applyUrl(destination, currentAppearance, { home: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
+      enterAnimation = surface.animate(
+        [{ opacity: 0.84 }, { opacity: 1 }],
+        { duration: PERSONA_ENTER_DURATION_MS, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "both" },
+      );
+      exitAnimation?.cancel();
+      return enterAnimation.finished;
+    }).then(finish).catch(() => {
+      // Cancellation is expected when browser history changes mid-transition.
+    });
   }, [persona]);
 
   useEffect(() => {
@@ -229,11 +170,19 @@ export function IdentityProvider({
   }, [persona, appearance]);
 
   useEffect(() => {
+    if (transitioning || !focusHeroAfterTransition.current) return;
+    focusHeroAfterTransition.current = false;
+    requestAnimationFrame(() => document.querySelector<HTMLElement>("#top h1")?.focus({ preventScroll: true }));
+  }, [transitioning]);
+
+  useEffect(() => {
     const sync = () => {
       window.dispatchEvent(new Event("portfolio-identity-navigation-start"));
       cancelAnimation.current?.();
+      cancelAnimation.current = null;
       busy.current = false;
       setTransitioning(false);
+      setTransitionStage("idle");
       const params = new URLSearchParams(window.location.search);
       const nextPersona = window.location.pathname === "/" && params.get("persona") === "fullstack" ? "fullstack" : "qa";
       const urlAppearance = params.get("theme");
@@ -254,7 +203,7 @@ export function IdentityProvider({
     };
   }, []);
 
-  const value = useMemo(() => ({ persona, appearance, setAppearance, switchPersona, transitioning }), [persona, appearance, setAppearance, switchPersona, transitioning]);
+  const value = useMemo(() => ({ persona, appearance, setAppearance, switchPersona, transitioning, transitionStage }), [persona, appearance, setAppearance, switchPersona, transitioning, transitionStage]);
 
   return (
     <IdentityContext.Provider value={value}>
