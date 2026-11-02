@@ -38,7 +38,7 @@ function buildGitHubRepoEvidence(
   return buildEvidence(
     labels.map(([label, path]) => ({
       label,
-      href: path ? `${repoUrl}/blob/master/${path}` : repoUrl,
+      href: path ? `${repoUrl}/blob/${repoSlug === "playwright-quality-framework" ? "main" : "master"}/${path}` : repoUrl,
     })),
   );
 }

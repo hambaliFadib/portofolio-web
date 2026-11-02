@@ -294,12 +294,15 @@ try {
     await waitForPersonaSettled(page, "fullstack");
     if (await page.locator("[data-ascii-transition]").count() !== 0) failures.push(`ASCII transition canvas remained after settling from ${section}`);
     if (section === "top") {
-      await page.locator("[data-ascii-lens]").hover();
-      await page.locator("[data-ascii-lens] canvas").waitFor({ state: "visible", timeout: 3000 }).catch(() => {
+      // Only the hero lens is under test; projects may mount their own lenses.
+      const heroLens = page.locator("#top [data-ascii-lens]");
+      if (await heroLens.count() !== 1) throw new Error("Identity regression requires exactly one hero ASCII Lens");
+      await heroLens.hover();
+      await heroLens.locator("canvas").waitFor({ state: "visible", timeout: 3000 }).catch(() => {
         failures.push("ordinary ASCII hover did not resume after persona transition");
       });
       await page.mouse.move(0, 0);
-      await page.locator("[data-ascii-lens] canvas").waitFor({ state: "hidden", timeout: 3000 }).catch(() => {
+      await heroLens.locator("canvas").waitFor({ state: "hidden", timeout: 3000 }).catch(() => {
         failures.push("ordinary ASCII hover did not clear after pointer exit following persona transition");
       });
       results.interactions.push("ASCII Lens hover resumes and clears after persona transition");

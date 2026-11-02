@@ -19,6 +19,7 @@ const outputRoot = process.env.PORTFOLIO_BROWSER_OUTPUT_DIR
 const themeOutput = path.join(outputRoot, 'theme-toggle');
 const homepageOutput = path.join(outputRoot, 'homepage');
 const identityOutput = path.join(outputRoot, 'identity');
+const projectsOutput = path.join(outputRoot, 'projects');
 
 if (path.dirname(outputRoot) !== artifactRoot) {
   throw new Error(`Browser regression output must be a unique child of ${artifactRoot}`);
@@ -38,6 +39,11 @@ await fs.writeFile(path.join(outputRoot, '.fadibfolio-session.json'), `${JSON.st
 console.log(`Temporary regression output: ${outputRoot}`);
 
 const suites = [
+  {
+    name: 'Editorial projects showcase and ASCII lens',
+    script: 'scripts/verify-projects-showcase.mjs',
+    env: { PORTFOLIO_PROJECTS_OUTPUT_DIR: projectsOutput },
+  },
   {
     name: 'Theme Toggle',
     script: 'scripts/verify-theme-toggle.mjs',
