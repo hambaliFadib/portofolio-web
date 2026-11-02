@@ -98,11 +98,12 @@ try {
 
     await image.scrollIntoViewIfNeeded();
     const box = await image.boundingBox();
-    const lensContainer = page.locator('[data-ascii-lens]');
+    const lensContainer = hero.locator('[data-ascii-lens]');
+    if (await lensContainer.count() !== 1) throw new Error('Hero must expose exactly one ASCII Lens');
     const lensBox = await lensContainer.boundingBox();
     const expectedLensDiameter = Math.round(Math.min(180, lensBox.width * 0.55));
     await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.46);
-    const canvas = page.locator('[data-ascii-lens] canvas');
+    const canvas = hero.locator('[data-ascii-lens] canvas');
     await reliability.measure(viewport.name+'-ascii-canvas-visible', page, () => canvas.waitFor({ state: 'visible', timeout: 3_000 }));
     const first = await canvas.evaluate(element => {
       const pixels = element.getContext('2d').getImageData(0, 0, element.width, element.height).data;
@@ -114,12 +115,12 @@ try {
       return { width: element.width, height: element.height, alphaPixels, colorVariety: colorVariety.size, dataUrl: element.toDataURL() };
     });
     await page.mouse.move(box.x + box.width * 0.69, box.y + box.height * 0.58);
-    await page.waitForFunction(previous => document.querySelector('[data-ascii-lens] canvas')?.toDataURL() !== previous, first.dataUrl, { timeout: 3_000 });
+    await page.waitForFunction(previous => document.querySelector('section#top [data-ascii-lens] canvas')?.toDataURL() !== previous, first.dataUrl, { timeout: 3_000 });
     const moved = await canvas.evaluate(element => ({ width: element.width, height: element.height, dataUrl: element.toDataURL() }));
     await reliability.measure(viewport.name+'-ascii-screenshot', page, () => page.screenshot({ path: path.join(output, `${viewport.name}-ascii-lens-hover.png`), animations: 'disabled' }));
     check(`${viewport.name}-ascii-lens-zooms-and-follows-pointer`, first.width === expectedLensDiameter && first.height === expectedLensDiameter && first.alphaPixels > 10_000 && first.colorVariety > 10 && moved.dataUrl !== first.dataUrl, { portraitWidth: box.width, lensContainerWidth: lensBox.width, expectedLensDiameter, initial: { width: first.width, height: first.height, alphaPixels: first.alphaPixels, colorVariety: first.colorVariety }, changedAfterPointerMove: moved.dataUrl !== first.dataUrl });
     await page.mouse.move(10, 100);
-    await page.waitForFunction(() => !document.querySelector('[data-ascii-lens] canvas'));
+    await page.waitForFunction(() => !document.querySelector('section#top [data-ascii-lens] canvas'));
     check(`${viewport.name}-ascii-lens-clears-on-pointer-exit`, await canvas.count() === 0, {});
 
     check(`${viewport.name}-no-unexpected-browser-errors`, browserErrors.length === 0, { browserErrors });
