@@ -1,216 +1,105 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { builtSystemsProjects } from "@/data/projects";
+import { AsciiLens } from "./ascii-lens";
 
-type PreviewVariant = "evidence" | "oracle";
-
-const projectNarratives: Record<
-  string,
-  { number: string; summary: string; outcome: string; preview: PreviewVariant }
-> = {
+const entries = {
   "ai-test-case-generator": {
     number: "01",
-    summary:
-      "Requirement evidence becomes reviewable test cases — with coverage gaps surfaced instead of invented.",
-    outcome: "Traceable test design",
-    preview: "evidence",
+    kicker: "From ambiguity to evidence",
+    statement: "Requirements are not test cases.",
+    body: "A five-layer pipeline turns what a requirement actually says into reviewable scenarios. Missing coverage stays visible instead of being invented.",
+    boundary: "Traceability before generation",
+    image: "/project-evidence-flow.svg",
+    imageAlt: "Conceptual requirement-to-coverage illustration: source, scenario plan, and traceable output.",
   },
   "playwright-quality-framework": {
     number: "02",
-    summary:
-      "Playwright owns the verdict. AI can explain failures, but it cannot change an assertion or a result.",
-    outcome: "An authoritative test oracle",
-    preview: "oracle",
+    kicker: "Automation with a firm boundary",
+    statement: "A verdict is not an opinion.",
+    body: "Playwright assertions decide PASS or FAIL. AI can help explain the evidence, but never overwrite, skip, or reinterpret the result.",
+    boundary: "The test oracle remains deterministic",
+    image: "/project-oracle-boundary.svg",
+    imageAlt: "Conceptual illustration of authoritative Playwright assertions separated from advisory AI analysis.",
   },
-};
-
-function SystemPreview({ variant }: { variant: PreviewVariant }) {
-  if (variant === "evidence") {
-    return (
-      <div
-        aria-hidden="true"
-        className="relative isolate flex min-h-60 flex-col justify-between overflow-hidden rounded-[1.4rem] bg-[#17202B] p-5 text-[#F1EFE8] sm:p-7"
-      >
-        <div className="pointer-events-none absolute -right-12 -top-24 size-64 rounded-full bg-[#FF7057]/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 left-2 size-72 rounded-full bg-[#8299FF]/20 blur-3xl" />
-        <div className="relative flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.17em] text-[#C9D8FF]">
-          <span>Evidence-bound generation</span>
-          <span className="rounded-full border border-[#C9D8FF]/30 px-2.5 py-1">Source first</span>
-        </div>
-        <div className="relative grid grid-cols-3 items-center gap-2 sm:gap-3">
-          {[
-            { step: "01", label: "Requirements" },
-            { step: "02", label: "Scenario plan" },
-            { step: "03", label: "Test cases" },
-          ].map((step) => (
-            <div
-              key={step.step}
-              className="relative min-w-0 rounded-xl border border-white/15 bg-white/10 px-2 py-4 backdrop-blur-sm sm:px-3 sm:py-5"
-            >
-              <span className="block font-mono text-[10px] text-[#FFAA97]">{step.step}</span>
-              <span className="mt-2 block text-[11px] font-semibold leading-4 sm:text-xs">
-                {step.label}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#D9F17A]">
-          <span className="size-1.5 rounded-full bg-[#D9F17A]" />
-          Coverage audited · gaps disclosed
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      aria-hidden="true"
-      className="relative isolate flex min-h-60 flex-col justify-between overflow-hidden rounded-[1.4rem] bg-[#17202B] p-5 text-[#F1EFE8] sm:p-7"
-    >
-      <div className="pointer-events-none absolute -right-16 -top-20 size-64 rounded-full bg-[#8299FF]/25 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-28 left-5 size-64 rounded-full bg-[#A6E5DC]/15 blur-3xl" />
-      <div className="relative flex flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.17em] text-[#C9D8FF]">
-        <span>Separated decision lanes</span>
-        <ShieldCheck className="size-5 text-[#D9F17A]" strokeWidth={1.5} />
-      </div>
-      <div className="relative space-y-2.5">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[#D9F17A]/35 bg-[#D9F17A]/10 px-4 py-3">
-          <div className="min-w-0">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-[#D9F17A]">
-              Test oracle
-            </span>
-            <span className="mt-1 block text-sm font-semibold">Playwright assertions</span>
-          </div>
-          <span className="shrink-0 rounded-full bg-[#D9F17A] px-2.5 py-1 font-mono text-[10px] font-bold text-[#17202B]">
-            PASS / FAIL
-          </span>
-        </div>
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[#C9D8FF]/35 bg-[#C9D8FF]/5 px-4 py-3">
-          <div className="min-w-0">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-[#C9D8FF]">
-              Advisory layer
-            </span>
-            <span className="mt-1 block text-sm font-semibold">AI failure triage</span>
-          </div>
-          <span className="shrink-0 rounded-full border border-[#C9D8FF]/40 px-2.5 py-1 font-mono text-[10px] text-[#C9D8FF]">
-            NO VERDICT
-          </span>
-        </div>
-      </div>
-      <div className="relative flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#C9D8FF]">
-        <span className="size-1.5 rounded-full bg-[#8299FF]" />
-        Policy-enforced boundaries
-      </div>
-    </div>
-  );
-}
+} as const;
 
 export function ProjectsShowcase() {
   return (
-    <section
-      id="projects"
-      aria-labelledby="projects-heading"
-      className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
-    >
+    <section id="projects" aria-labelledby="projects-heading" className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mb-10 grid items-end gap-6 sm:mb-14 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-16">
+        <div className="grid gap-6 border-b border-border/70 pb-12 lg:grid-cols-[1fr_0.8fr] lg:items-end lg:gap-20">
           <div>
-            <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-coral">
-              Selected work / Built systems
-            </p>
-            <h2
-              id="projects-heading"
-              className="max-w-2xl font-display text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl"
-            >
-              Engineered to make quality visible.
+            <p className="mb-5 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-coral">Selected work / 2026</p>
+            <h2 id="projects-heading" className="max-w-3xl font-display text-4xl font-semibold leading-[1.09] tracking-[-0.045em] text-foreground sm:text-6xl">
+              Built to be questioned.<br /><span className="text-muted-foreground">Made to be trusted.</span>
             </h2>
           </div>
           <p className="max-w-lg text-base leading-8 text-muted-foreground lg:pb-1">
-            Two public projects that show how I connect requirements, architecture,
-            and evidence — beyond a list of tools.
+            Two public systems. Not a list of tools — a closer look at the decisions that keep their outputs defensible.
           </p>
         </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div>
           {builtSystemsProjects.map((project) => {
-            const narrative = projectNarratives[project.id];
-            if (!narrative) return null;
+            const entry = entries[project.id as keyof typeof entries];
+            if (!entry) return null;
             const repository = project.evidence?.find((item) => item.label === "GitHub repo");
             const references = project.evidence?.filter((item) => item.label !== "GitHub repo").slice(0, 2) ?? [];
-
             return (
-              <article
-                key={project.id}
-                className="group flex min-w-0 flex-col gap-6 rounded-[2rem] border border-border/70 bg-card/80 p-4 shadow-[var(--shadow-cast-sm)] transition-[border-color,box-shadow,transform] duration-300 hover:border-coral/50 hover:shadow-[var(--shadow-cast-md)] motion-safe:hover:-translate-y-1 sm:p-6"
-              >
-                <SystemPreview variant={narrative.preview} />
-                <div className="flex flex-1 flex-col px-2 pb-2 sm:px-3 sm:pb-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-coral">
-                      Project / {narrative.number}
-                    </span>
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {project.domain}
-                    </span>
+              <article key={project.id} data-project-feature={project.id} className="border-b border-border/70 py-12 sm:py-16">
+                <div className="grid items-start gap-9 lg:grid-cols-[minmax(0,0.87fr)_minmax(0,1.13fr)] lg:gap-16 xl:gap-24">
+                  <div className="flex min-w-0 flex-col">
+                    <div className="flex items-center gap-4 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-coral">
+                      <span className="text-3xl leading-none tracking-tight text-foreground sm:text-4xl">{entry.number}</span>
+                      <span className="h-px w-9 bg-coral/70" />
+                      <span>{entry.kicker}</span>
+                    </div>
+                    <h3 className="mt-8 max-w-xl font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-4xl">
+                      {project.title}
+                    </h3>
+                    <p className="mt-5 max-w-lg text-xl font-medium leading-snug text-foreground">{entry.statement}</p>
+                    <p className="mt-4 max-w-xl text-base leading-8 text-muted-foreground">{entry.body}</p>
+                    <div className="mt-8 border-l-2 border-coral pl-5">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted-foreground">Engineering boundary</p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">{entry.boundary}</p>
+                    </div>
+                    <p className="mt-7 font-mono text-xs text-muted-foreground">
+                      {project.tags.slice(0, 3).join(" / ")}
+                    </p>
+                    <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
+                      {repository && (
+                        <Link href={repository.href} target="_blank" rel="noopener noreferrer"
+                          aria-label={`Explore ${project.title} source on GitHub`}
+                          className="group inline-flex cursor-pointer items-center gap-2 border-b border-coral pb-1 text-sm font-semibold text-foreground transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+                          Explore source <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                        </Link>
+                      )}
+                      {references.map((reference) => (
+                        <Link key={reference.href} href={reference.href} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex cursor-pointer items-center gap-1 border-b border-border pb-1 text-xs text-muted-foreground transition-colors hover:border-coral hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+                          {reference.label.split(" — ")[0]} <ArrowUpRight aria-hidden="true" className="size-3" />
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                  <h3 className="mt-5 font-display text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
-                    {project.title}
-                  </h3>
-                  <p className="mt-4 max-w-xl text-base leading-7 text-muted-foreground">
-                    {narrative.summary}
-                  </p>
-                  <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <ShieldCheck aria-hidden="true" className="size-4 shrink-0 text-coral" />
-                    {narrative.outcome}
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-2" aria-label={project.title + " technologies and practices"}>
-                    {project.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-border/90 bg-background/60 px-3 py-1.5 text-xs text-muted-foreground"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-x-5 gap-y-4 border-t border-border/70 pt-6 sm:mt-8">
-                    {repository && (
-                      <Link
-                        href={repository.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={"Explore " + project.title + " source on GitHub"}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-foreground underline decoration-coral/70 underline-offset-8 transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                      >
-                        Explore source <ArrowUpRight aria-hidden="true" className="size-4 transition-transform motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:translate-x-0.5" />
-                      </Link>
-                    )}
-                    {references.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                        <span className="sr-only">Further evidence:</span>
-                        {references.map((reference) => (
-                          <Link
-                            key={reference.href}
-                            href={reference.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-                          >
-                            {reference.label.split(" — ")[0]}
-                            <ArrowRight aria-hidden="true" className="size-3" />
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <figure className="min-w-0">
+                    <div className="overflow-hidden border border-border/60 bg-[#101B29]">
+                      <AsciiLens src={entry.image} alt={entry.imageAlt} width={1200} height={720}
+                        transitionStage="idle" className="!max-w-none !rounded-none"
+                        imageClassName="!object-cover" />
+                    </div>
+                    <figcaption className="mt-3 flex items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                      <span>Conceptual system diagram / not a product screenshot</span>
+                      <span className="hidden sm:inline">Hover to inspect</span>
+                    </figcaption>
+                  </figure>
                 </div>
               </article>
             );
           })}
         </div>
         <p className="mt-8 max-w-3xl text-sm leading-7 text-muted-foreground">
-          These are engineering case studies, not benchmark claims. Source code and supporting
-          documentation are linked so you can inspect the decisions behind each system.
+          These descriptions reflect architectural decisions, not benchmark claims. Linked source and documentation remain the evidence.
         </p>
       </div>
     </section>

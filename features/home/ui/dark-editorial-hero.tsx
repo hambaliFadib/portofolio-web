@@ -24,7 +24,7 @@ import { useIdentity } from "@/components/identity/identity-provider";
  */
 export function DarkEditorialHero() {
   const reduceMotion = useReducedMotionPreference();
-  const { persona } = useIdentity();
+  const { persona, transitionStage } = useIdentity();
   const heroRef = useRef<HTMLElement | null>(null);
   const heroHeadline = persona === "qa" ? "Clarity before speed. Quality before release." : "Thoughtful software. Built with intent.";
 
@@ -41,10 +41,10 @@ export function DarkEditorialHero() {
     <section
       id="top"
       ref={heroRef}
-      className="relative py-16 sm:py-20 lg:py-28"
+      className="relative py-12 sm:py-20 lg:py-28"
       aria-label={persona === "qa" ? "QUALITY ENGINEERING" : "FULL STACK ENGINEERING"}
     >
-      <div className="mx-auto grid w-full max-w-7xl items-center gap-10 px-6 sm:gap-12 lg:grid-cols-[1.3fr_minmax(300px,0.7fr)] lg:gap-16 lg:px-8">
+      <div className="mx-auto grid w-full max-w-7xl items-start gap-8 px-6 sm:gap-12 lg:grid-cols-[1.3fr_minmax(300px,0.7fr)] lg:gap-16 lg:px-8">
       {/* ── Typography column ────────────────────────────────────── */}
       <motion.div
         className="mx-auto max-w-3xl lg:mx-0"
@@ -114,15 +114,15 @@ export function DarkEditorialHero() {
         >
           {persona === "qa" && <Link
             href="#qa-motion"
-            className="inline-flex items-center gap-2 rounded-md bg-coral px-6 py-3 text-sm font-semibold text-background shadow-[0_6px_20px_-8px_rgba(0,0,0,.55)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_-8px_rgba(0,0,0,.75)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 rounded-md bg-coral px-4 py-3 text-sm font-semibold text-background shadow-[0_6px_20px_-8px_rgba(0,0,0,.55)] transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_-8px_rgba(0,0,0,.75)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-6"
           >
-            <MarkedText text="Explore the journey" />
+            <MarkedText text="See my QA approach" />
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>}
 
           {persona === "qa" && <Link
             href="#projects"
-            className="inline-flex items-center gap-2 rounded-md border border-border/40 bg-card/40 px-6 py-3 text-sm font-medium text-foreground/90 backdrop-blur transition-colors duration-200 hover:border-coral/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="inline-flex items-center gap-2 rounded-md border border-border/40 bg-card/40 px-5 py-3 text-sm font-medium text-foreground/90 backdrop-blur transition-colors duration-200 hover:border-coral/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-6"
           >
             <MarkedText text="View work" />
           </Link>}
@@ -140,7 +140,9 @@ export function DarkEditorialHero() {
             alt="Hambali Fadib"
             width={340}
             height={425}
+            transitionStage={transitionStage}
             className="shadow-[0_24px_56px_-20px_rgba(0,0,0,.5)]"
+            imageClassName="dark:brightness-[1.08]"
           />
         </div>
       </motion.div>

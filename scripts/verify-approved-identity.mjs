@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
+import { observeBrowserErrors } from "./browser-error-observer.mjs";
 
 const origin = process.env.IDENTITY_PREVIEW_URL ?? "http://localhost:3002";
 const output = path.resolve(process.env.IDENTITY_EVIDENCE_DIR ?? "output/playwright/cp-03u");
@@ -10,6 +11,10 @@ const modes = [
   { persona: "fullstack", theme: "light", background: "rgb(240, 244, 237)" },
   { persona: "fullstack", theme: "dark", background: "rgb(16, 26, 21)" },
 ];
+const expectedBrowserTitles = {
+  qa: "Hambali Fadib — Software Quality Assurance Engineer",
+  fullstack: "Hambali Fadib — Full Stack Engineer",
+};
 const viewports = [
   { width: 1440, height: 900 },
   { width: 768, height: 1024 },
@@ -17,29 +22,10 @@ const viewports = [
   { width: 320, height: 760 },
 ];
 const failures = [];
-const results = { firstPaint: [], journeys: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [] };
+const results = { firstPaint: [], metadata: [], journeys: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [], expectedNavigationAborts: [] };
 
 function observe(page, scope) {
-  page.on("pageerror", (error) => results.errors.push(`${scope}: ${error.message}`));
-  let optionalTelemetry404 = false;
-  page.on("response", (response) => {
-    if (response.status() < 400) return;
-    if (response.url().includes("/_vercel/insights/")) {
-      optionalTelemetry404 = true;
-      results.telemetryBlocked.push(`${scope}: HTTP ${response.status()} ${response.url()}`);
-    } else {
-      results.errors.push(`${scope}: HTTP ${response.status()} ${response.url()}`);
-    }
-  });
-  page.on("console", (message) => {
-    if (message.type() !== "error") return;
-    const text = message.text();
-    if (text.includes("ERR_NETWORK_ACCESS_DENIED") || (optionalTelemetry404 && text.includes("404 (Not Found)"))) {
-      results.telemetryBlocked.push(`${scope}: ${text}`);
-    } else {
-      results.errors.push(`${scope}: ${text}`);
-    }
-  });
+  observeBrowserErrors(page, { label: scope, origin, errors: results.errors, telemetryBlocked: results.telemetryBlocked, expectedNavigationAborts: results.expectedNavigationAborts });
 }
 
 async function waitForUrl(page, pattern, timeout = 5000) {
@@ -47,6 +33,13 @@ async function waitForUrl(page, pattern, timeout = 5000) {
     source: pattern.source,
     flags: pattern.flags,
   }, { timeout });
+}
+
+async function waitForPersonaSettled(page, persona, timeout = 5000) {
+  await page.waitForFunction((expected) => {
+    const surface = document.querySelector(".identity-surface");
+    return surface?.getAttribute("data-persona") === expected && surface.getAttribute("aria-busy") === "false";
+  }, persona, { timeout });
 }
 
 function contrastRatio(foreground, background) {
@@ -93,6 +86,18 @@ try {
       });
       const response = await page.goto(`${origin}/?persona=${mode.persona}&theme=${mode.theme}`, { waitUntil: "domcontentloaded" });
       if (response?.status() !== 200) failures.push(`${mode.persona}/${mode.theme} ${viewport.width}: HTTP ${response?.status()}`);
+      const html = await response?.text() ?? "";
+      const serverTitle = html.match(/<title>(.*?)<\/title>/i)?.[1] ?? null;
+      const expectedTitle = expectedBrowserTitles[mode.persona];
+      await page.waitForFunction((title) => document.title === title, expectedTitle);
+      const metadata = await page.evaluate(() => ({
+        title: document.title,
+        openGraphTitle: document.querySelector('meta[property="og:title"]')?.getAttribute("content") ?? null,
+      }));
+      if (serverTitle !== expectedTitle || metadata.title !== expectedTitle || metadata.openGraphTitle !== expectedTitle) {
+        failures.push(`browser metadata mismatch ${mode.persona}/${mode.theme}/${viewport.width}: ${JSON.stringify({ serverTitle, ...metadata, expectedTitle })}`);
+      }
+      results.metadata.push({ persona: mode.persona, theme: mode.theme, viewport, serverTitle, ...metadata, expectedTitle });
       await page.waitForSelector("#top h1", { state: "visible" });
       await page.waitForTimeout(100);
       await page.locator("#top img").scrollIntoViewIfNeeded();
@@ -133,6 +138,28 @@ try {
       await context.close();
     }
   }
+
+  const titleHistory = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  observe(titleHistory, "Browser title history");
+  await titleHistory.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "domcontentloaded" });
+  await titleHistory.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
+  await waitForPersonaSettled(titleHistory, "fullstack");
+  await titleHistory.waitForFunction((title) => document.title === title, expectedBrowserTitles.fullstack);
+  if (await titleHistory.locator('meta[property="og:title"]').getAttribute("content") !== expectedBrowserTitles.fullstack) {
+    failures.push("Persona switch did not update the Open Graph title");
+  }
+  await titleHistory.goBack();
+  await titleHistory.waitForFunction(() => new URLSearchParams(location.search).get("persona") === "qa");
+  await waitForPersonaSettled(titleHistory, "qa");
+  await titleHistory.waitForFunction((title) => document.title === title, expectedBrowserTitles.qa);
+  await titleHistory.goForward();
+  await titleHistory.waitForFunction(() => new URLSearchParams(location.search).get("persona") === "fullstack");
+  await waitForPersonaSettled(titleHistory, "fullstack");
+  await titleHistory.waitForFunction((title) => document.title === title, expectedBrowserTitles.fullstack);
+  await titleHistory.reload({ waitUntil: "domcontentloaded" });
+  await titleHistory.waitForFunction((title) => document.title === title, expectedBrowserTitles.fullstack);
+  results.metadata.push({ personaSwitch: "fullstack", back: "qa", forward: "fullstack", refresh: "fullstack", passed: true });
+  await titleHistory.close();
 
   const qa = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   observe(qa, "Journey");
@@ -213,29 +240,80 @@ try {
         const rect = element.getBoundingClientRect();
         return Number(getComputedStyle(element).opacity) > 0.95 && rect.bottom > 80 && rect.top < innerHeight;
       }, section, { timeout: 5000 });
+    } else {
+      await page.waitForFunction(() => {
+        const heading = document.querySelector("#top h1");
+        if (!heading) return false;
+        const style = getComputedStyle(heading);
+        return Number(style.opacity) > 0.99 && Math.abs(new DOMMatrix(style.transform).m42) < 0.1;
+      }, null, { timeout: 5000 });
     }
-    const beforeY = await page.evaluate(() => window.scrollY);
-    if (section === "projects" || section === "qa-motion") {
+    const beforeHeadlineTop = section === "top"
+      ? await page.locator("#top h1").evaluate((heading) => heading.getBoundingClientRect().top)
+      : null;
+    if (await page.locator('[data-ascii-lens] [data-ascii-transition]').count() !== 0) failures.push(`ASCII transition was already active before switching from ${section}`);
+    if (section === "top" || section === "projects" || section === "qa-motion") {
       await page.screenshot({ path: path.join(output, `transition-qa-${section}-before.png`) });
     }
     await page.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
-    if (!(await page.locator("canvas[data-persona-transition]").count())) failures.push(`transition canvas missing from ${section}`);
-    await page.waitForTimeout(110);
-    if (section === "projects" || section === "qa-motion") {
-      await page.screenshot({ path: path.join(output, `transition-qa-${section}-covered.png`) });
+    if (await page.locator(".identity-surface").getAttribute("aria-busy") !== "true") failures.push(`transition did not mark the surface busy from ${section}`);
+    await page.locator('[data-ascii-transition="introduce"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => {
+      failures.push(`automatic ASCII introduction did not start from ${section} with the pointer outside the portrait`);
+    });
+    await page.waitForTimeout(50);
+    const midpoint = await page.evaluate(() => ({
+      persona: document.querySelector(".identity-surface")?.getAttribute("data-persona"),
+      opacity: Number(getComputedStyle(document.querySelector(".identity-surface")).opacity),
+      busy: document.querySelector(".identity-surface")?.getAttribute("aria-busy"),
+      ascii: (() => {
+        const canvas = document.querySelector('[data-ascii-transition="introduce"] canvas');
+        if (!(canvas instanceof HTMLCanvasElement)) return null;
+        const context = canvas.getContext("2d");
+        if (!context) return null;
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let visiblePixels = 0;
+        for (let index = 3; index < pixels.length; index += 4) if (pixels[index] > 0) visiblePixels++;
+        return { width: canvas.width, height: canvas.height, visiblePixels, opacity: getComputedStyle(canvas).opacity };
+      })(),
+    }));
+    if (midpoint.persona !== "qa" || midpoint.busy !== "true" || midpoint.opacity >= 1 || midpoint.opacity < 0.8) failures.push(`unexpected transition midpoint from ${section}: ${JSON.stringify(midpoint)}`);
+    if (!midpoint.ascii || midpoint.ascii.visiblePixels < 100) failures.push(`ASCII introduction was not visibly derived from the portrait at midpoint from ${section}: ${JSON.stringify(midpoint.ascii)}`);
+    if (section === "top" || section === "projects" || section === "qa-motion") {
+      await page.screenshot({ path: path.join(output, `transition-qa-${section}-midpoint.png`) });
     }
-    const coveredY = await page.evaluate(() => window.scrollY);
-    if (section !== "top" && Math.abs(coveredY - beforeY) > 24) failures.push(`scroll moved before dissolve cover from ${section}`);
     await waitForUrl(page, /persona=fullstack.*theme=dark.*#top/);
-    await page.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"), null, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack", null, { timeout: 5000 });
+    await page.locator('[data-ascii-transition="dissolve"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => {
+      failures.push(`ASCII composition did not dissolve over the destination persona from ${section}`);
+    });
+    const revealY = await page.evaluate(() => window.scrollY);
+    if (section !== "top" && revealY > 4) failures.push(`destination did not return to top from ${section}`);
+    if (section === "top" || section === "projects" || section === "qa-motion") {
+      await page.screenshot({ path: path.join(output, `transition-qa-${section}-destination-reveal.png`) });
+    }
+    await waitForPersonaSettled(page, "fullstack");
+    if (await page.locator("[data-ascii-transition]").count() !== 0) failures.push(`ASCII transition canvas remained after settling from ${section}`);
+    if (section === "top") {
+      await page.locator("[data-ascii-lens]").hover();
+      await page.locator("[data-ascii-lens] canvas").waitFor({ state: "visible", timeout: 3000 }).catch(() => {
+        failures.push("ordinary ASCII hover did not resume after persona transition");
+      });
+      await page.mouse.move(0, 0);
+      await page.locator("[data-ascii-lens] canvas").waitFor({ state: "hidden", timeout: 3000 }).catch(() => {
+        failures.push("ordinary ASCII hover did not clear after pointer exit following persona transition");
+      });
+      results.interactions.push("ASCII Lens hover resumes and clears after persona transition");
+    }
     const final = await page.evaluate(() => ({
       persona: document.querySelector(".identity-surface")?.getAttribute("data-persona"),
       theme: document.querySelector(".identity-surface")?.getAttribute("data-appearance"),
       y: window.scrollY,
       title: document.querySelector("#top h1")?.textContent,
+      headlineTop: document.querySelector("#top h1")?.getBoundingClientRect().top,
     }));
     if (final.persona !== "fullstack" || final.theme !== "dark" || final.y > 4 || !final.title?.includes("Thoughtful software")) failures.push(`bad transition destination from ${section}: ${JSON.stringify(final)}`);
-    if (section === "projects" || section === "qa-motion") {
+    if (beforeHeadlineTop !== null && Math.abs(final.headlineTop - beforeHeadlineTop) > 2) failures.push(`headline shifted across persona transition: ${beforeHeadlineTop} -> ${final.headlineTop}`);
+    if (section === "top" || section === "projects" || section === "qa-motion") {
       await page.screenshot({ path: path.join(output, `transition-qa-${section}-after.png`) });
     }
     results.transitions.push({ from: `QA ${section}`, ...final });
@@ -247,10 +325,14 @@ try {
   await reverse.goto(`${origin}/?persona=fullstack&theme=light`, { waitUntil: "networkidle" });
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-before.png") });
   await reverse.getByRole("button", { name: "Switch to QA Engineer" }).click();
-  await reverse.waitForTimeout(110);
-  await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-covered.png") });
+  await reverse.locator('[data-ascii-transition="introduce"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => failures.push("Full Stack to QA did not automatically introduce ASCII"));
+  await reverse.waitForTimeout(50);
+  await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-midpoint.png") });
   await waitForUrl(reverse, /persona=qa.*theme=light.*#top/);
-  await reverse.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  await reverse.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa");
+  await reverse.locator('[data-ascii-transition="dissolve"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => failures.push("Full Stack to QA did not dissolve ASCII into the destination"));
+  await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-destination-reveal.png") });
+  await waitForPersonaSettled(reverse, "qa");
   await reverse.screenshot({ path: path.join(output, "transition-fullstack-home-after.png") });
   if (await reverse.locator("#qa-motion").count() !== 1) failures.push("Reverse switch did not restore QA journey");
 
@@ -261,7 +343,7 @@ try {
   const historyScroll = await history.evaluate(() => window.scrollY);
   await history.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
   await waitForUrl(history, /persona=fullstack.*#top/);
-  await history.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  await waitForPersonaSettled(history, "fullstack");
   await history.goBack();
   await waitForUrl(history, /persona=qa/);
   await history.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa");
@@ -279,13 +361,22 @@ try {
   await keyboardBrand.focus();
   await keyboard.keyboard.press("Enter");
   await waitForUrl(keyboard, /persona=fullstack.*#top/);
+  await waitForPersonaSettled(keyboard, "fullstack");
+  if (await keyboard.evaluate(() => document.activeElement !== document.querySelector("#top h1"))) failures.push("Keyboard persona activation did not focus the destination heading");
   results.interactions.push("Keyboard persona activation");
 
   const touch = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   observe(touch, "Touch");
   await touch.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
   await touch.getByRole("button", { name: "Switch to Full Stack Engineer" }).tap();
+  await touch.locator('[data-ascii-transition="introduce"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => failures.push("Mobile persona switch did not automatically introduce ASCII"));
+  await touch.screenshot({ path: path.join(output, "transition-mobile-introduce.png") });
   await waitForUrl(touch, /persona=fullstack.*#top/);
+  await touch.locator('[data-ascii-transition="dissolve"] canvas').waitFor({ state: "visible", timeout: 3000 }).catch(() => failures.push("Mobile persona switch did not dissolve ASCII into the destination"));
+  await touch.screenshot({ path: path.join(output, "transition-mobile-destination-reveal.png") });
+  await waitForPersonaSettled(touch, "fullstack");
+  if (await touch.locator("[data-ascii-transition]").count() !== 0) failures.push("Mobile ASCII transition canvas remained after settling");
+  await touch.screenshot({ path: path.join(output, "transition-mobile-after.png") });
   results.interactions.push("Touch persona activation");
 
   const reduced = await browser.newPage({ reducedMotion: "reduce", viewport: { width: 390, height: 844 } });
@@ -293,8 +384,10 @@ try {
   await reduced.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
   await reduced.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
   await waitForUrl(reduced, /persona=fullstack.*theme=dark.*#top/);
-  if (await reduced.locator("canvas[data-persona-transition]").count()) failures.push("Reduced motion rendered transition particles");
-  results.reducedMotion = { persona: "fullstack", theme: "dark", particles: 0 };
+  if (await reduced.locator(".identity-surface").getAttribute("aria-busy") === "true") failures.push("Reduced motion kept the persona surface busy");
+  if (await reduced.evaluate(() => document.activeElement !== document.querySelector("#top h1"))) failures.push("Reduced motion did not focus the destination heading");
+  if (await reduced.locator("[data-ascii-transition]").count() !== 0) failures.push("Reduced motion unexpectedly triggered the automatic ASCII introduction");
+  results.reducedMotion = { persona: "fullstack", theme: "dark", transitioning: false, focusedHeading: true };
 
   // P2-01: appearance resolution follows URL, history entry, stored preference, then Dark fallback.
   const fresh = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -306,11 +399,12 @@ try {
 
   const storedLight = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await storedLight.addInitScript(() => localStorage.setItem("theme", "light"));
-  observe(storedLight, "Stored Light fallback");
+  observe(storedLight, "Stored Light without server preference");
   await storedLight.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
-  await storedLight.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light" && new URLSearchParams(location.search).get("theme") === "light");
-  if (await storedLight.locator("html").getAttribute("data-appearance") !== "light" || await storedLight.locator("html").evaluate((element) => !element.classList.contains("light"))) failures.push("Stored Light preference did not initialize Light");
-  if (!(await storedLight.evaluate(() => document.cookie.split("; ").includes("theme=light")))) failures.push("Legacy localStorage preference was not migrated to the SSR cookie");
+  await storedLight.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
+  if (await storedLight.locator("html").getAttribute("data-appearance") !== "dark" || await storedLight.locator("html").evaluate((element) => !element.classList.contains("dark"))) failures.push("LocalStorage-only value changed the server-rendered fallback");
+  if (new URLSearchParams(await storedLight.evaluate(() => location.search)).has("theme")) failures.push("LocalStorage-only value rewrote the URL after hydration");
+  if (!(await storedLight.evaluate(() => localStorage.getItem("theme") === "light"))) failures.push("Server-first initialization removed the legacy localStorage value");
   await storedLight.close();
 
   const fallbackHistory = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -319,7 +413,7 @@ try {
   await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
   await fallbackHistory.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
   await waitForUrl(fallbackHistory, /persona=fullstack.*theme=dark.*#top/);
-  await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+  await waitForPersonaSettled(fallbackHistory, "fullstack");
   await fallbackHistory.goBack();
   await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
   if (await fallbackHistory.evaluate(() => localStorage.getItem("theme")) !== null) failures.push("History restoration fabricated a stored appearance preference");
@@ -329,14 +423,14 @@ try {
   await fallbackHistory.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "dark");
   await fallbackHistory.close();
 
-  // P2-04: a persona switch cancels an uncommitted theme reveal and preserves an already committed one.
+  // A theme click commits immediately, and a following persona switch preserves that selection.
   const pendingThemeSwitch = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   observe(pendingThemeSwitch, "Pending theme/persona transition");
   await pendingThemeSwitch.goto(`${origin}/?persona=qa&theme=dark`, { waitUntil: "networkidle" });
   await pendingThemeSwitch.locator("[data-theme-toggle]").click();
   await pendingThemeSwitch.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
-  await pendingThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
-  if (await pendingThemeSwitch.locator("html").getAttribute("data-appearance") !== "dark" || !new URLSearchParams(await pendingThemeSwitch.evaluate(() => location.search)).toString().includes("theme=dark")) failures.push("Uncommitted theme reveal changed appearance during persona transition");
+  await waitForPersonaSettled(pendingThemeSwitch, "fullstack");
+  if (await pendingThemeSwitch.locator("html").getAttribute("data-appearance") !== "light" || !new URLSearchParams(await pendingThemeSwitch.evaluate(() => location.search)).toString().includes("theme=light")) failures.push("Committed theme click was lost during persona transition");
   if (await pendingThemeSwitch.locator("html").evaluate((root) => root.classList.contains("theme-transitioning"))) failures.push("Persona switch left a theme-transition overlay active");
   await pendingThemeSwitch.close();
 
@@ -346,7 +440,7 @@ try {
   await committedThemeSwitch.locator("[data-theme-toggle]").click();
   await committedThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-appearance") === "light" && new URLSearchParams(location.search).get("theme") === "light");
   await committedThemeSwitch.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
-  await committedThemeSwitch.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+  await waitForPersonaSettled(committedThemeSwitch, "fullstack");
   if (await committedThemeSwitch.locator(".identity-surface").getAttribute("data-appearance") !== "light" || !new URLSearchParams(await committedThemeSwitch.evaluate(() => location.search)).toString().includes("theme=light")) failures.push("Committed theme was lost during persona transition");
   await committedThemeSwitch.close();
 
@@ -386,9 +480,9 @@ try {
   await spy.locator("#projects").scrollIntoViewIfNeeded();
   await spy.waitForFunction(() => document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === "#projects");
   await spy.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
-  await spy.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  await waitForPersonaSettled(spy, "fullstack");
   await spy.getByRole("button", { name: "Switch to QA Engineer" }).click();
-  await spy.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+  await waitForPersonaSettled(spy, "qa");
   for (const section of ["projects", "thinking", "about", "contact", "projects", "thinking", "about", "contact"]) {
     await spy.locator(`#${section}`).scrollIntoViewIfNeeded();
     const href = section === "contact" ? "#contact" : `#${section}`;
@@ -405,11 +499,11 @@ try {
     await mobile.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
     const menuToggle = mobile.locator('button[aria-controls="primary-mobile-menu"]');
     await mobile.getByRole("button", { name: "Switch to Full Stack Engineer" }).click();
-    await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+    await waitForPersonaSettled(mobile, "fullstack");
     if (await mobile.getByRole("button", { name: "Close menu" }).count()) failures.push(`Closed-menu switch left mobile menu open at ${width}px`);
     if (await mobile.evaluate(() => getComputedStyle(document.body).overflow === "hidden")) failures.push(`Closed-menu switch retained body lock at ${width}px`);
     await mobile.getByRole("button", { name: "Switch to QA Engineer" }).click();
-    await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && !document.querySelector("canvas[data-persona-transition]"));
+    await waitForPersonaSettled(mobile, "qa");
 
     await menuToggle.click();
     await mobile.getByRole("dialog", { name: "Site navigation" }).waitFor();
@@ -425,19 +519,19 @@ try {
       await mobile.keyboard.press("Enter");
     }
     await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack");
-    await mobile.waitForFunction(() => !document.querySelector("canvas[data-persona-transition]"));
+    await waitForPersonaSettled(mobile, "fullstack");
     await mobile.waitForFunction(() => !document.querySelector('[role="dialog"][aria-label="Site navigation"]'));
     if (await menuToggle.getAttribute("aria-expanded") !== "false") failures.push(`Wordmark switch did not close menu at ${width}px`);
     if (await mobile.evaluate(() => getComputedStyle(document.body).overflow === "hidden")) failures.push(`Wordmark switch retained body lock at ${width}px`);
     if (await mobile.evaluate(() => document.documentElement.scrollHeight <= innerHeight)) failures.push(`Destination page could not scroll at ${width}px`);
     if (width === 390) {
       await mobile.getByRole("button", { name: "Switch to QA Engineer" }).click();
-      await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "qa" && !document.querySelector("canvas[data-persona-transition]"));
+      await waitForPersonaSettled(mobile, "qa");
       await mobile.getByRole("button", { name: "Switch to Full Stack Engineer" }).evaluate((button) => {
         button.click();
         button.click();
       });
-      await mobile.waitForFunction(() => document.querySelector(".identity-surface")?.getAttribute("data-persona") === "fullstack" && !document.querySelector("canvas[data-persona-transition]"));
+      await waitForPersonaSettled(mobile, "fullstack");
       if (!new URLSearchParams(await mobile.evaluate(() => location.search)).get("persona")?.includes("fullstack")) failures.push("Rapid repeated activation corrupted persona URL");
     }
     results.interactions.push(`Mobile menu keyboard/touch persona switching and scroll restoration ${width}px`);

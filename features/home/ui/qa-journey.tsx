@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import {
   AnimatePresence,
@@ -53,7 +53,7 @@ const sceneVariants: Variants = {
     opacity: reduceMotion ? 1 : 0.35,
     transition: reduceMotion
       ? { duration: 0 }
-      : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.3, ease: "easeIn" } },
+      : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.38, ease: "easeIn" } },
   }),
 };
 
@@ -352,12 +352,13 @@ function Artifact({ id }: { id: StageId }) {
   return <DecisionArtifact />;
 }
 
-function SlidingScene({ stage, index, direction, reduceMotion }: { stage: (typeof stages)[number]; index: number; direction: Direction; reduceMotion: boolean }) {
+function SlidingScene({ stage, index, direction, reduceMotion, active }: { stage: (typeof stages)[number]; index: number; direction: Direction; reduceMotion: boolean; active: boolean }) {
   const isPresent = useIsPresent();
   return (
     <motion.article aria-hidden={!isPresent} inert={!isPresent} custom={{ direction, reduceMotion }} variants={sceneVariants} initial="enter" animate="center" exit="exit"
-      transition={reduceMotion ? { duration: 0 } : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.3, ease: "easeOut" }}}
-      className="col-start-1 row-start-1 grid min-w-0 items-center gap-6 py-3 sm:gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-[clamp(44px,7vw,104px)]">
+      transition={reduceMotion ? { duration: 0 } : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.38, ease: "easeOut" }}}
+      data-active-scene={isPresent && active ? "true" : undefined}
+      className="col-start-1 row-start-1 grid min-w-0 self-start items-center gap-6 py-3 sm:gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-[clamp(44px,7vw,104px)]">
       <div className="order-2 max-w-[410px] lg:order-1">
         <div className="mb-3 flex items-center gap-3 sm:mb-[17px]">
           <span className="font-mono text-xs tracking-[0.12em] text-coral">0{index + 1}</span>
@@ -376,8 +377,30 @@ export function QaJourney() {
   const [direction, setDirection] = useState<Direction>(1);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelHeight, setPanelHeight] = useState<number | undefined>();
+  const [animatePanelHeight, setAnimatePanelHeight] = useState(false);
   const reduceMotion = useReducedMotionPreference();
   const activeStage = stages[activeIndex];
+
+  useLayoutEffect(() => {
+    const activeScene = panelRef.current?.querySelector<HTMLElement>("[data-active-scene='true']");
+    if (!activeScene) return;
+
+    const measureHeight = () => {
+      const nextHeight = activeScene.getBoundingClientRect().height;
+      setPanelHeight((currentHeight) => currentHeight === nextHeight ? currentHeight : nextHeight);
+    };
+
+    measureHeight();
+    const observer = new ResizeObserver(measureHeight);
+    observer.observe(activeScene);
+    const animationFrame = window.requestAnimationFrame(() => setAnimatePanelHeight(true));
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      observer.disconnect();
+    };
+  }, [activeIndex]);
 
   function navigateTo(index: number) {
     if (index < 0 || index >= stages.length || index === activeIndex) return;
@@ -420,7 +443,7 @@ export function QaJourney() {
               return (
                 <button key={stage.id} ref={(node) => { tabRefs.current[index] = node; }} type="button" role="tab" id={`qa-motion-tab-${stage.id}`} aria-controls="qa-motion-panel" aria-selected={selected} tabIndex={selected ? 0 : -1} onPointerEnter={(event) => { if (event.pointerType !== "touch") setHoveredIndex(index); }} onClick={() => navigateTo(index)} onKeyDown={(event) => handleTabKeyDown(event, index)} className={`qa-chapter relative flex min-h-11 cursor-pointer items-center gap-1 px-[2px] text-left font-mono text-[9px] uppercase tracking-[0.01em] transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-[62px] sm:gap-[10px] sm:px-4 sm:text-[11px] sm:tracking-[0.07em] sm:first:pl-0 motion-reduce:transition-none ${selected ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                   <span className="text-[8px] text-coral sm:text-[10px]">0{index + 1}</span><span>{stage.label}</span>
-                  {hoveredIndex === index && <motion.span layoutId="qa-motion-hover-indicator" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: selected ? 0 : 1 }} transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: reduceMotion ? 0 : 0.16, ease: "easeOut" } }} className="absolute inset-x-0 -bottom-px h-px bg-foreground/55 sm:right-4 sm:left-0" />}
+                {hoveredIndex === index && <motion.span layoutId="qa-motion-hover-indicator" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: selected ? 0 : 1 }} transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: reduceMotion ? 0 : 0.18, ease: "easeOut" } }} className="absolute inset-x-0 -bottom-px h-px bg-foreground/55 sm:right-4 sm:left-0" />}
                   {selected && <motion.span layoutId="qa-motion-active-indicator" aria-hidden="true" initial={false} transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }} className="absolute inset-x-0 -bottom-px h-0.5 bg-coral sm:right-4 sm:left-0" />}
                 </button>
               );
@@ -429,11 +452,11 @@ export function QaJourney() {
           <p className="pb-2 text-[10px] text-muted-foreground sm:pb-0 sm:text-xs">Select a chapter or follow the trace.</p>
         </LayoutGroup>
       </div>
-      <div className="mt-6 min-h-0 flex-1 sm:mt-[42px]">
-        <motion.div layout={!reduceMotion} transition={reduceMotion ? { duration: 0 } : { duration: 0.36, ease: [0.22, 1, 0.36, 1] }} className="relative overflow-hidden">
-          <div id="qa-motion-panel" role="tabpanel" aria-labelledby={`qa-motion-tab-${activeStage.id}`} tabIndex={0} className="grid min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div className="mt-6 sm:mt-[42px]">
+        <motion.div initial={false} animate={panelHeight === undefined ? undefined : { height: panelHeight }} transition={reduceMotion || !animatePanelHeight ? { duration: 0 } : { height: { duration: 0.38, ease: [0.65, 0, 0.35, 1] } }} className="relative overflow-hidden">
+          <div ref={panelRef} id="qa-motion-panel" role="tabpanel" aria-labelledby={`qa-motion-tab-${activeStage.id}`} tabIndex={0} className="grid min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <AnimatePresence initial={false} mode="sync" custom={{ direction, reduceMotion }}>
-              <SlidingScene key={activeStage.id} stage={activeStage} index={activeIndex} direction={direction} reduceMotion={reduceMotion} />
+              <SlidingScene key={activeStage.id} stage={activeStage} index={activeIndex} direction={direction} reduceMotion={reduceMotion} active />
             </AnimatePresence>
           </div>
         </motion.div>

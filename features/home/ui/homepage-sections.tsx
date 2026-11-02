@@ -4,8 +4,8 @@ import { aboutCvAction, aboutProfile } from "@/data/about";
 import { frameworkBlocks } from "@/data/framework";
 import { contactChannels } from "@/data/profile";
 import { decisionPrinciplesSection, problemBreakdownSection } from "@/data/thinking";
-import { ProjectsShowcase } from "./projects-showcase";
 import { QaJourney } from "./qa-journey";
+import { ProjectsShowcase } from "./projects-showcase";
 
 type SectionHeadingProps = {
   eyebrow: string;

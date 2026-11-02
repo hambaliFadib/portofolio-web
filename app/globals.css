@@ -234,8 +234,8 @@
     background-image: var(--page-gradient);
     min-height: 100vh;
     transition:
-      background-color 320ms ease,
-      color 320ms ease;
+      background-color 200ms ease-out,
+      color 200ms ease-out;
   }
 
   /*
@@ -248,42 +248,29 @@
   html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal),
   html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::before,
   html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::after {
-    transition-duration: 320ms !important;
+    transition-duration: 200ms !important;
     transition-property:
       background-color,
       border-color,
       color,
       fill,
       stroke !important;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition-timing-function: ease-out !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal),
+    html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::before,
+    html.theme-transitioning *:not([style*="transition"]):not(.route-transition-page):not(.scroll-reveal)::after {
+      transition-duration: 0ms !important;
+      transition-delay: 0ms !important;
+    }
   }
 
   /* Keep the hero heading readable when its background gradient commits. */
   html.theme-transitioning #top h1,
   html.theme-transitioning #top h1 > span {
     transition: none !important;
-  }
-
-  /* Subtle colour-wash overlay — z-index kept below mobile menu overlay */
-  html.theme-transitioning body::after {
-    animation: theme-sky-shift 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
-    content: "";
-    inset: 0;
-    pointer-events: none;
-    position: fixed;
-    z-index: 1000;
-  }
-
-  html.theme-transitioning[data-theme-target="dark"] body::after {
-    background:
-      radial-gradient(circle at 84% 16%, rgba(176, 211, 230, 0.12), transparent 24%),
-      linear-gradient(120deg, rgba(10, 17, 24, 0.02), rgba(10, 17, 24, 0.18));
-  }
-
-  html.theme-transitioning[data-theme-target="light"] body::after {
-    background:
-      radial-gradient(circle at 84% 16%, rgba(255, 247, 214, 0.28), transparent 25%),
-      linear-gradient(120deg, rgba(248, 251, 255, 0.06), rgba(248, 251, 255, 0.22));
   }
 
   ::selection {
@@ -501,12 +488,6 @@
       opacity: 1;
       transform: translateX(0);
     }
-  }
-
-  @keyframes theme-sky-shift {
-    0%   { opacity: 0; }
-    30%  { opacity: 1; }
-    100% { opacity: 0; }
   }
 
 }

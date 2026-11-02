@@ -1,11 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import { DarkEditorialHero } from "./dark-editorial-hero";
 import { HomepageSections } from "./homepage-sections";
-import { useIdentity } from "@/components/identity/identity-provider";
+import { useIdentity, type Persona } from "@/components/identity/identity-provider";
 
-export function PersonaHomepage() {
+export function PersonaHomepage({ personaTitles }: { personaTitles: Readonly<Record<Persona, string>> }) {
   const { persona } = useIdentity();
+
+  useEffect(() => {
+    const title = personaTitles[persona];
+    document.title = title;
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
+  }, [persona, personaTitles]);
+
   return (
     <>
       <DarkEditorialHero />
