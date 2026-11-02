@@ -22,7 +22,7 @@ const viewports = [
   { width: 320, height: 760 },
 ];
 const failures = [];
-const results = { firstPaint: [], metadata: [], journeys: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [], expectedNavigationAborts: [] };
+const results = { firstPaint: [], metadata: [], journeys: [], journeyLayouts: [], interactions: [], transitions: [], reducedMotion: null, errors: [], telemetryBlocked: [], expectedNavigationAborts: [] };
 
 function observe(page, scope) {
   observeBrowserErrors(page, { label: scope, origin, errors: results.errors, telemetryBlocked: results.telemetryBlocked, expectedNavigationAborts: results.expectedNavigationAborts });
@@ -104,6 +104,7 @@ try {
       await page.locator("#top img").evaluate((image) => image.decode());
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
       await page.evaluate(() => document.fonts.ready);
+      await waitForPersonaSettled(page, mode.persona);
       const check = await page.evaluate(() => {
         const surface = document.querySelector(".identity-surface");
         const heading = surface?.querySelector("#top h1");
@@ -132,6 +133,44 @@ try {
       if (Number(check.heroOpacity) < 0.99 || !check.imageLoaded || !check.fontLoaded || check.overflow) failures.push(`render integrity ${mode.persona}/${mode.theme}/${viewport.width}: ${JSON.stringify(check)}`);
       if (mode.persona === "qa" && check.saveColors && contrastRatio(check.saveColors.foreground, check.saveColors.background) < 4.5) failures.push(`Save profile text contrast below 4.5:1 in ${mode.theme}: ${JSON.stringify(check.saveColors)}`);
       results.firstPaint.push({ ...mode, viewport, ...check });
+      if (mode.persona === "qa") {
+        const journey = page.locator("#qa-motion");
+        const layout = await journey.evaluate((section) => {
+          const canvas = section.querySelector("[data-qa-canvas]");
+          const controls = Array.from(section.querySelectorAll("button")).map((button) => ({
+            name: button.innerText.trim(),
+            height: button.getBoundingClientRect().height,
+          }));
+          return {
+            viewport: innerWidth,
+            surfaceOpacity: Number(getComputedStyle(document.querySelector(".identity-surface")).opacity),
+            sectionWidth: section.getBoundingClientRect().width,
+            sectionScrollWidth: section.scrollWidth,
+            canvasWidth: canvas?.getBoundingClientRect().width ?? 0,
+            chapterCount: section.querySelectorAll('nav[aria-label="QA investigation chapters"] button').length,
+            activeChapter: section.querySelector('nav[aria-label="QA investigation chapters"] button[aria-current="step"]')?.innerText.trim() ?? null,
+            hasLegacyProfileField: Boolean(section.querySelector("#qa-profile-name")),
+            minimumControlHeight: controls.length ? Math.min(...controls.map((control) => control.height)) : 0,
+          };
+        });
+        if (layout.sectionScrollWidth > layout.sectionWidth + 1) failures.push(`QA Journey horizontal overflow ${mode.theme}/${viewport.width}: ${JSON.stringify(layout)}`);
+        if (layout.surfaceOpacity < 0.99) failures.push(`QA Journey screenshot was captured during a persona transition ${mode.theme}/${viewport.width}: ${JSON.stringify(layout)}`);
+        if (layout.chapterCount !== 4 || !layout.activeChapter?.includes("Signal")) failures.push(`QA Journey chapter navigation mismatch ${mode.theme}/${viewport.width}: ${JSON.stringify(layout)}`);
+        if (layout.hasLegacyProfileField) failures.push(`Legacy profile form is still present ${mode.theme}/${viewport.width}`);
+        if (layout.minimumControlHeight < 44) failures.push(`QA Journey control target below 44px ${mode.theme}/${viewport.width}: ${JSON.stringify(layout)}`);
+        results.journeyLayouts.push({ theme: mode.theme, ...layout });
+        if (viewport.width === 1440 || viewport.width === 390) {
+          await journey.scrollIntoViewIfNeeded();
+          await page.waitForFunction(() => {
+            const section = document.querySelector("#qa-motion");
+            if (!section) return false;
+            const style = getComputedStyle(section);
+            const transform = new DOMMatrix(style.transform);
+            return Number(style.opacity) >= 0.99 && Math.abs(transform.m42) < 0.5;
+          });
+          await journey.screenshot({ path: path.join(output, `qa-journey-${mode.theme}-${viewport.width}.png`) });
+        }
+      }
       if (viewport.width === 1440) {
         await page.screenshot({ path: path.join(output, `${mode.persona}-${mode.theme}-1440x900.png`) });
       }
@@ -165,58 +204,62 @@ try {
   observe(qa, "Journey");
   await qa.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
   for (const stage of ["Signal", "Connection", "Evidence", "Decision"]) {
-    await qa.getByRole("tab", { name: new RegExp(stage, "i") }).click();
-    const selected = await qa.getByRole("tab", { name: new RegExp(stage, "i") }).getAttribute("aria-selected");
-    if (selected !== "true") failures.push(`Journey stage did not select: ${stage}`);
+    const chapter = qa.getByRole("button", { name: new RegExp(stage, "i") });
+    await chapter.click();
+    const selected = await chapter.getAttribute("aria-current");
+    if (selected !== "step") failures.push(`Journey stage did not select: ${stage}`);
     results.journeys.push({ stage, selected });
   }
-  await qa.getByRole("button", { name: /reveal assessment/i }).waitFor();
-  await qa.getByRole("button", { name: /reveal assessment/i }).click();
-  if ((await qa.getByRole("button", { name: /hide assessment/i }).getAttribute("aria-expanded")) !== "true") failures.push("Assessment did not expand");
-  await qa.getByRole("button", { name: /hide assessment/i }).click();
-  await qa.getByRole("tab", { name: /signal/i }).click();
-  await qa.locator("#qa-profile-name").fill("Sam Lee");
-  await qa.getByRole("button", { name: /save profile/i }).click();
-  await qa.waitForFunction(() => /profile saved/i.test(document.querySelector("#qa-motion")?.innerText ?? ""));
-  await qa.getByRole("button", { name: /reload profile/i }).click();
-  await qa.getByText("Nadia Putri").first().waitFor();
-  results.interactions.push("Signal simulated reload");
-  await qa.locator("#qa-profile-name").fill("Nadia Putri");
-  await qa.getByRole("button", { name: /save profile/i }).click();
-  await qa.getByText("Profile saved").waitFor();
-  await qa.getByRole("button", { name: /reload profile/i }).click();
-  await qa.getByText("Profile reloaded").waitFor();
-  if (await qa.getByText(/Mismatch - the earlier profile name is still shown/).count()) failures.push("Signal simulation reported a mismatch when expected and observed names agreed");
-  results.interactions.push("Signal status matches saved and observed values");
-  await qa.getByRole("tab", { name: /connection/i }).click();
-  const persistenceNode = qa.getByRole("button", { name: /data persistence/i });
+  const signalChapter = qa.getByRole("button", { name: /signal/i });
+  await signalChapter.focus();
+  await qa.keyboard.press("Enter");
+  if ((await signalChapter.getAttribute("aria-current")) !== "step") failures.push("Signal chapter was not keyboard activatable");
+  await qa.getByRole("button", { name: /check after reload/i }).click();
+  await qa.getByText(/the earlier value returned/i).waitFor();
+  if (!(await qa.getByText("Maya Putri").count())) failures.push("Signal replay did not show the previous profile value");
+  results.interactions.push("Signal read-back observation");
+  await qa.getByRole("button", { name: /connection/i }).click();
+  const persistenceNode = qa.getByRole("button", { name: /stored value/i });
   await persistenceNode.click();
   if ((await persistenceNode.getAttribute("aria-pressed")) !== "true") failures.push("Connection node did not select");
   results.interactions.push("Connection node selection");
-  await qa.getByRole("tab", { name: /evidence/i }).click();
-  await qa.getByRole("button", { name: "Run verification" }).click();
+  await qa.getByRole("button", { name: /evidence/i }).click();
+  await qa.getByRole("button", { name: "Run evidence replay" }).click();
   await qa.getByText(/Evidence confirms a mismatch in this example/).waitFor();
-  await qa.getByRole("button", { name: /run verification again/i }).click();
-  await qa.getByRole("button", { name: /simulating verification/i }).waitFor();
+  await qa.getByRole("button", { name: /run it again/i }).click();
+  await qa.getByRole("button", { name: /checking evidence/i }).waitFor();
   await qa.emulateMedia({ reducedMotion: "reduce" });
-  await qa.getByRole("button", { name: /run verification again/i }).waitFor();
-  await qa.getByText(/Assertion failed - simulated/).waitFor();
+  await qa.getByRole("button", { name: /run it again/i }).waitFor();
+  await qa.getByText(/Evidence confirms a mismatch in this example/).waitFor();
   await qa.emulateMedia({ reducedMotion: "no-preference" });
   results.interactions.push("In-flight verification completes when reduced motion is enabled");
-  results.interactions.push("Evidence simulation");
-  await qa.getByRole("tab", { name: /decision/i }).click();
-  await qa.getByRole("button", { name: /reveal assessment/i }).click();
-  results.interactions.push("Decision assessment expand/collapse");
-  const viewWork = qa.getByRole("link", { name: /view work/i });
+  results.interactions.push("Evidence replay and reduced-motion completion");
+  await qa.getByRole("button", { name: /decision/i }).click();
+  const nextStep = qa.getByRole("button", { name: /hold release until persistence is verified/i });
+  await nextStep.click();
+  if ((await nextStep.getAttribute("aria-pressed")) !== "true") failures.push("Decision recommendation did not select");
+  results.interactions.push("Decision recommendation selection");
+  // Keep the Hero hover contract independent from the Journey's reduced-motion emulation.
+  const heroHover = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  observe(heroHover, "Hero View Work hover");
+  await heroHover.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
+  const viewWork = heroHover.getByRole("link", { name: /view work/i });
   await viewWork.scrollIntoViewIfNeeded();
-  await qa.mouse.move(0, 0);
-  await qa.waitForTimeout(50);
+  await heroHover.waitForFunction(() => {
+    const heading = document.querySelector("#top h1");
+    if (!heading) return false;
+    const style = getComputedStyle(heading);
+    return Number(style.opacity) >= 0.99 && Math.abs(new DOMMatrix(style.transform).m42) < 0.5;
+  });
+  await heroHover.mouse.move(0, 0);
+  await heroHover.waitForTimeout(50);
   const borderBefore = await viewWork.evaluate((element) => getComputedStyle(element).borderColor);
   await viewWork.hover();
-  await qa.waitForTimeout(220);
+  await heroHover.waitForTimeout(220);
   const borderHover = await viewWork.evaluate((element) => getComputedStyle(element).borderColor);
   if (borderBefore === borderHover) failures.push("View Work border did not react on hover");
   results.interactions.push("View Work hover border");
+  await heroHover.close();
   const themeButton = qa.locator("[data-theme-toggle]");
   await themeButton.click();
   await qa.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark", null, { timeout: 5000 });

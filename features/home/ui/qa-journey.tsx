@@ -1,478 +1,415 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
-import {
-  AnimatePresence,
-  LayoutGroup,
-  motion,
-  useIsPresent,
-  type Variants,
-} from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Check, CircleAlert, Play, RotateCcw } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useReducedMotionPreference } from "@/components/motion/use-reduced-motion";
 
-const stages = [
+const chapters = [
+  { id: "signal", label: "Signal", title: "A message is a clue." },
+  { id: "connection", label: "Connection", title: "Follow the write." },
+  { id: "evidence", label: "Evidence", title: "Replay the evidence." },
+  { id: "decision", label: "Decision", title: "Choose the next move." },
+] as const;
+
+const handoffs = [
   {
-    id: "signal",
-    label: "Signal",
-    title: "It said saved. It wasn't.",
-    summary: "The success message and the name shown after reload can disagree.",
+    label: "User intent",
+    detail: "Nadia submits a profile name change.",
   },
   {
-    id: "connection",
-    label: "Connection",
-    title: "Follow the path of the change.",
-    summary: "Trace each handoff before deciding where the change was lost.",
+    label: "Interface",
+    detail: "The screen reports that the profile was saved.",
   },
   {
-    id: "evidence",
-    label: "Evidence",
-    title: "Turn suspicion into proof.",
-    summary: "Reproduce the mismatch, then compare the value after reload.",
+    label: "Write request",
+    detail: "The acknowledgement says the write completed; inspect what it confirms.",
   },
   {
-    id: "decision",
-    label: "Decision",
-    title: "Evidence changes the decision.",
-    summary: "Use what was observed to choose a proportionate next step.",
+    label: "Stored value",
+    detail: "A reload returns the previous name, so persistence remains unproven.",
   },
 ] as const;
 
-type StageId = (typeof stages)[number]["id"];
-type Direction = 1 | -1;
-type MotionSettings = { direction: Direction; reduceMotion: boolean };
+const replaySteps = [
+  "Submit the profile update",
+  "Reload the profile",
+  "Compare expected and observed",
+  "Record the mismatch",
+] as const;
 
-const sceneVariants: Variants = {
-  enter: ({ direction, reduceMotion }: MotionSettings) => ({
-    x: reduceMotion ? 0 : `${direction * 100}%`,
-    opacity: reduceMotion ? 1 : 0.35,
-  }),
-  center: { x: 0, opacity: 1 },
-  exit: ({ direction, reduceMotion }: MotionSettings) => ({
-    x: reduceMotion ? 0 : `${direction * -100}%`,
-    opacity: reduceMotion ? 1 : 0.35,
-    transition: reduceMotion
-      ? { duration: 0 }
-      : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.38, ease: "easeIn" } },
-  }),
+type ChapterId = (typeof chapters)[number]["id"];
+type DecisionId = "inspect-write" | "hold-release";
+
+const sceneTransition = {
+  duration: 0.22,
+  ease: [0.22, 1, 0.36, 1] as const,
 };
 
-const artifactLabelClass = "font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground sm:text-[10px]";
-const detailLabelClass = "font-mono text-[9px] uppercase tracking-[0.11em] text-muted-foreground sm:text-[10px]";
-const artifactBodyClass = "text-[13px] leading-[1.62] text-muted-foreground sm:text-[15px] sm:leading-[1.7]";
-const artifactValueClass = "mt-1 block font-display text-[18px] font-medium leading-[1.3] text-foreground sm:text-[20px]";
-const actionClass = "inline-flex min-h-11 cursor-pointer items-center gap-2 border-b border-border py-2 text-left text-[13px] font-semibold text-foreground transition-colors hover:border-coral hover:text-coral focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:border-border disabled:hover:text-muted-foreground motion-reduce:transition-none sm:text-sm";
-const actionEase = [0.22, 1, 0.36, 1] as const;
+const canvasFocusClass =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--identity-paper-dark-ink)] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101B29]";
+const sectionFocusClass =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
-function AnimatedText({
-  value,
-  reduceMotion,
-  className = "inline-block",
-}: {
-  value: string;
-  reduceMotion: boolean;
-  className?: string;
-}) {
+function SignalScene({ reduceMotion }: { reduceMotion: boolean }) {
+  const [observed, setObserved] = useState(false);
+
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.span
-        key={value}
-        initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-        transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: actionEase }}
-        className={className}
-      >
-        {value}
-      </motion.span>
-    </AnimatePresence>
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+      transition={reduceMotion ? { duration: 0 } : sceneTransition}
+      className="grid min-h-[340px] items-center gap-9 p-6 sm:min-h-[360px] sm:p-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14"
+    >
+      <div className="max-w-md">
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-[var(--identity-paper-dark-ink)]">The first signal</p>
+        <h3 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
+          “Saved” is what the screen said.
+        </h3>
+        <p className="mt-5 text-base leading-8 text-white/70">
+          Nadia changed her profile name. The confirmation appeared, but the value after reload tells a different story.
+        </p>
+      </div>
+
+      <div className="min-w-0">
+        <div className="grid grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center gap-3 sm:gap-5">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.13em] text-white/55 sm:text-xs">Expected after save</p>
+            <p className="mt-3 break-words font-display text-xl font-medium leading-tight text-white sm:text-2xl">Nadia Putri</p>
+          </div>
+          <ArrowRight aria-hidden="true" className="mx-auto size-5 text-[var(--identity-paper-dark-ink)]" />
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.13em] text-white/55 sm:text-xs">After reload</p>
+            <p className={`mt-3 break-words font-display text-xl font-medium leading-tight sm:text-2xl ${observed ? "text-[var(--identity-paper-dark-ink)]" : "text-white/50"}`}>
+              {observed ? "Maya Putri" : "Not checked"}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setObserved(true)}
+          className={`mt-8 inline-flex min-h-11 cursor-pointer items-center gap-2 border-b border-[var(--identity-paper-dark-ink)] pb-1 text-sm font-semibold text-white transition-colors hover:text-[var(--identity-paper-dark-ink)] motion-reduce:transition-none ${canvasFocusClass}`}
+        >
+          <RotateCcw aria-hidden="true" className="size-4" />
+          {observed ? "Reload checked" : "Check after reload"}
+        </button>
+        <p role="status" aria-live="polite" className="mt-3 min-h-6 border-l-2 border-[var(--identity-paper-dark-ink)] pl-4 text-base leading-7 text-white/70">
+          {observed ? "The earlier value returned. The confirmation alone did not prove persistence." : "The next step is to compare the value that returns."}
+        </p>
+      </div>
+    </motion.div>
   );
 }
 
-const artifactLayoutTransition = { layout: { duration: 0.24, ease: actionEase } };
-
-function ArtifactFrame({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-h-[290px] w-full min-w-0 border-y border-border py-5 sm:min-h-[270px] sm:py-6">
-      <p className={artifactLabelClass}>{label}</p>
-      <div className="mt-5 sm:mt-6">{children}</div>
-    </div>
-  );
-}
-
-function SignalArtifact() {
-  const observedName = "Nadia Putri";
-  const [name, setName] = useState("Maya Putri");
-  const [savedName, setSavedName] = useState("Maya Putri");
-  const [saved, setSaved] = useState(true);
-  const [reloaded, setReloaded] = useState(false);
-  const mismatch = reloaded && savedName !== observedName;
-  const reduceMotion = useReducedMotionPreference();
+function ConnectionScene({ reduceMotion }: { reduceMotion: boolean }) {
+  const [selectedHandoff, setSelectedHandoff] = useState(0);
+  const activeHandoff = handoffs[selectedHandoff];
 
   return (
-    <ArtifactFrame label="01 / Profile snapshot - local simulation">
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
-        <form className="min-w-0 flex-1" onSubmit={(event) => { event.preventDefault(); setSavedName(name.trim()); setSaved(true); setReloaded(false); }}>
-          <label htmlFor="qa-profile-name" className={detailLabelClass}>Profile name - local simulation</label>
-          <input id="qa-profile-name" value={name} maxLength={48} required onChange={(event) => { setName(event.target.value); setSaved(false); setReloaded(false); }} className="mt-2 block min-h-11 w-full max-w-sm border-b border-border bg-transparent py-2 font-display text-[18px] text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background" />
-          <button type="submit" className="mt-3 inline-flex min-h-11 items-center rounded-[10px] bg-coral px-4 py-2 text-sm font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Save profile</button>
-        </form>
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 sm:justify-end">
-          <motion.span layout={!reduceMotion} className="min-w-[22ch] font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-coral sm:text-[10px]">
-            <AnimatedText value={reloaded ? mismatch ? "Previous name returned" : "Profile reloaded" : saved ? "Profile saved" : "Edits are not saved"} reduceMotion={reduceMotion} />
-          </motion.span>
-          <button type="button" onClick={() => setReloaded(true)} disabled={reloaded} className={actionClass}>
-            <RefreshCw aria-hidden="true" className="h-4 w-4" />
-            <AnimatedText value={reloaded ? "Reloaded" : "Reload profile"} reduceMotion={reduceMotion} />
-          </button>
-        </div>
-      </motion.div>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} className="mt-5 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:mt-6 sm:gap-6">
-        <div className="min-w-0">
-          <span className={detailLabelClass}>After reload - observed</span>
-          <strong className={`${artifactValueClass} ${mismatch ? "text-coral" : reloaded ? "text-primary" : "text-muted-foreground"}`}>
-            <AnimatedText value={reloaded ? observedName : "Not checked"} reduceMotion={reduceMotion} />
-          </strong>
-        </div>
-        <div className="min-w-0">
-          <span className={detailLabelClass}>Expected value</span>
-          <strong className={artifactValueClass}><AnimatedText value={savedName} reduceMotion={reduceMotion} /></strong>
-        </div>
-      </motion.div>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} role="status" aria-live="polite" className={`mt-4 border-t border-border pt-3 ${artifactBodyClass} sm:mt-5`}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.p
-            key={mismatch ? "mismatch" : reloaded ? "match" : "awaiting-evidence"}
-            initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: actionEase }}
-          >
-            {mismatch
-              ? "Mismatch - the earlier profile name is still shown. This simulation does not change an account."
-              : reloaded
-                ? "Match - the saved value is visible after reload in this local simulation."
-                : "A confirmation is feedback; persistence still needs evidence."}
-          </motion.p>
-        </AnimatePresence>
-      </motion.div>
-    </ArtifactFrame>
-  );
-}
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+      transition={reduceMotion ? { duration: 0 } : sceneTransition}
+      className="min-h-[340px] p-6 sm:min-h-[360px] sm:p-10"
+    >
+      <div className="max-w-2xl">
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-[var(--identity-paper-dark-ink)]">Trace the handoff</p>
+        <h3 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
+          Where did the value stop travelling?
+        </h3>
+        <p className="mt-4 text-base leading-8 text-white/70">
+          Select a point in the write path to see what still needs proof. Each point is a question, not a root-cause claim.
+        </p>
+      </div>
 
-const traceNodes = [
-  {
-    label: "User action",
-    question: "Which new name did the user submit?",
-    note: "Confirm the intended value before tracing the handoff.",
-  },
-  {
-    label: "Frontend",
-    question: "Was success shown before stored data was confirmed?",
-    note: "An optimistic interface state is a hypothesis, not a finding.",
-  },
-  {
-    label: "API",
-    question: "Did the write operation receive an acknowledgement?",
-    note: "Check what the operation reported; do not infer the result.",
-  },
-  {
-    label: "Data persistence",
-    question: "Was the updated name actually stored?",
-    note: "Verify the stored value independently after the write.",
-  },
-] as const;
-
-function ConnectionArtifact() {
-  const [selectedNode, setSelectedNode] = useState(1);
-  const reduceMotion = useReducedMotionPreference();
-  const selected = traceNodes[selectedNode];
-
-  return (
-    <ArtifactFrame label="02 / Follow the handoff - questions are hypotheses">
-      <ol aria-label="Investigation path from user action to data persistence" className="grid grid-cols-1 gap-1 sm:grid-cols-4 sm:gap-0">
-        {traceNodes.map((node, index) => {
-          const isSelected = selectedNode === index;
+      <ol aria-label="Profile update handoff" className="relative mt-10 grid gap-2 sm:grid-cols-4 sm:gap-4">
+        <span aria-hidden="true" className="absolute bottom-5 left-[13px] top-5 w-px bg-white/20 sm:bottom-auto sm:left-[8%] sm:right-[8%] sm:top-[13px] sm:h-px sm:w-auto" />
+        {handoffs.map((handoff, index) => {
+          const selected = selectedHandoff === index;
           return (
-            <li key={node.label} className={`relative min-w-0 border-l pl-3 sm:border-l-0 sm:pl-0 ${isSelected ? "border-coral" : "border-border"}`}>
-              {index < traceNodes.length - 1 && (
-                <span aria-hidden="true" className="absolute left-1/2 top-[13px] hidden h-px w-full overflow-hidden bg-border sm:block">
-                  <motion.span initial={false} animate={{ scaleX: index < selectedNode ? 1 : 0 }} transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: actionEase }} className="block h-full origin-left bg-coral" />
-                </span>
-              )}
+            <li key={handoff.label} className="relative min-w-0">
               <button
                 type="button"
-                aria-pressed={isSelected}
-                onClick={() => setSelectedNode(index)}
-                className={`group relative z-[1] flex min-h-11 w-full cursor-pointer items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-[76px] sm:flex-col sm:items-center sm:gap-2 sm:text-center`}
+                aria-pressed={selected}
+                onClick={() => setSelectedHandoff(index)}
+                className={`group flex min-h-11 w-full cursor-pointer items-center gap-3 text-left sm:flex-col sm:items-start sm:gap-4 ${canvasFocusClass}`}
               >
-                <span className={`grid h-[27px] w-[27px] shrink-0 place-items-center rounded-full border bg-background font-mono text-[9px] transition-colors duration-150 motion-reduce:transition-none sm:text-[10px] ${isSelected ? "border-coral text-coral" : "border-border text-muted-foreground group-hover:border-foreground group-hover:text-foreground"}`}>
-                  0{index + 1}
+                <span className={`grid size-[27px] shrink-0 place-items-center rounded-full border font-mono text-[10px] transition-colors motion-reduce:transition-none sm:size-7 ${selected ? "border-[var(--identity-paper-dark-ink)] bg-[var(--identity-paper-dark-ink)] text-[#101B29]" : "border-white/35 bg-[#101B29] text-white/70 group-hover:border-white group-hover:text-white"}`}>
+                  {selected ? <Check aria-hidden="true" className="size-3.5" /> : `0${index + 1}`}
                 </span>
-                <span className={`text-[13px] font-medium leading-snug transition-colors duration-150 motion-reduce:transition-none sm:text-sm ${isSelected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>
-                  {node.label}
+                <span className={`text-sm font-medium leading-snug transition-colors motion-reduce:transition-none ${selected ? "text-white" : "text-white/65 group-hover:text-white"}`}>
+                  {handoff.label}
                 </span>
               </button>
             </li>
           );
         })}
       </ol>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} aria-live="polite" className="mt-4 min-h-[74px] border-t border-border pt-3 sm:mt-5 sm:min-h-[70px]">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div key={selectedNode} initial={reduceMotion ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }} transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: actionEase }}>
-            <p className={detailLabelClass}>Investigation question - hypothesis only</p>
-            <p className="mt-1 font-display text-[16px] font-medium leading-[1.35] text-foreground sm:text-[18px]">{selected.question}</p>
-            <p className={`mt-1 ${artifactBodyClass}`}>{selected.note}</p>
-          </motion.div>
-        </AnimatePresence>
-      </motion.div>
-      <p className={`mt-3 border-t border-border pt-3 ${artifactBodyClass} sm:mt-4`}>
-        Trace the relationship - keep the cause open until evidence narrows it.
-      </p>
-    </ArtifactFrame>
+
+      <div aria-live="polite" className="mt-8 min-h-[70px] border-l-2 border-[var(--identity-paper-dark-ink)] pl-4">
+        <p className="font-mono text-xs uppercase tracking-[0.13em] text-white/55">{activeHandoff.label}</p>
+        <p className="mt-2 max-w-2xl text-base leading-8 text-white">{activeHandoff.detail}</p>
+      </div>
+    </motion.div>
   );
 }
 
-const verificationSteps = ["Save", "Reload", "Compare", "Result"] as const;
-
-function EvidenceArtifact() {
+function EvidenceScene({ reduceMotion }: { reduceMotion: boolean }) {
   const [step, setStep] = useState(-1);
-  const reduceMotion = useReducedMotionPreference();
-  const isRunning = step >= 0 && step < verificationSteps.length - 1;
-  const hasResult = step === verificationSteps.length - 1;
-  const observed = step >= 2;
+  const running = step >= 0 && step < replaySteps.length - 1;
+  const complete = step === replaySteps.length - 1;
 
   useEffect(() => {
-    if (!isRunning) return;
+    if (!running) return;
     if (reduceMotion) {
-      queueMicrotask(() => setStep((current) => current >= 0 && current < verificationSteps.length - 1 ? verificationSteps.length - 1 : current));
+      queueMicrotask(() => {
+        setStep((current) => (current >= 0 && current < replaySteps.length - 1 ? replaySteps.length - 1 : current));
+      });
       return;
     }
-    const timer = window.setTimeout(() => {
-      setStep((current) => Math.min(current + 1, verificationSteps.length - 1));
-    }, 210);
-    return () => window.clearTimeout(timer);
-  }, [isRunning, reduceMotion, step]);
 
-  function runVerification() {
-    if (isRunning) return;
-    setStep(reduceMotion ? verificationSteps.length - 1 : 0);
+    const timer = window.setTimeout(() => {
+      setStep((current) => Math.min(current + 1, replaySteps.length - 1));
+    }, 420);
+
+    return () => window.clearTimeout(timer);
+  }, [reduceMotion, running, step]);
+
+  function runReplay() {
+    setStep(reduceMotion ? replaySteps.length - 1 : 0);
   }
 
   return (
-    <ArtifactFrame label="03 / Expected against observed - simulated verification">
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] sm:items-start sm:gap-5">
-        <div className="min-w-0">
-          <span className={detailLabelClass}>Expected after reload</span>
-          <strong className={artifactValueClass}>Maya Putri</strong>
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+      transition={reduceMotion ? { duration: 0 } : sceneTransition}
+      className="min-h-[340px] p-6 sm:min-h-[360px] sm:p-10"
+    >
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-2xl">
+          <p className="font-mono text-xs uppercase tracking-[0.16em] text-[var(--identity-paper-dark-ink)]">Run the check</p>
+          <h3 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
+            A repeatable path turns doubt into evidence.
+          </h3>
+          <p className="mt-4 text-base leading-8 text-white/70">
+            Replay the same update, reload the profile, and compare what was requested with what came back.
+          </p>
         </div>
-        <div aria-hidden="true" className="h-px w-full bg-border sm:h-[58px] sm:w-px" />
-        <div className="min-w-0">
-          <span className={detailLabelClass}>Observed after reload</span>
-          <strong className={`${artifactValueClass} ${observed ? "text-coral" : "text-muted-foreground"}`}>
-            <AnimatedText value={observed ? "Nadia Putri" : "Not checked"} reduceMotion={reduceMotion} />
-          </strong>
-        </div>
+        <button
+          type="button"
+          onClick={runReplay}
+          disabled={running}
+          className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-2 self-start border-b border-[var(--identity-paper-dark-ink)] pb-1 text-sm font-semibold text-white transition-colors hover:text-[var(--identity-paper-dark-ink)] disabled:cursor-wait disabled:text-white/55 motion-reduce:transition-none sm:self-auto ${canvasFocusClass}`}
+        >
+          {running ? <RotateCcw aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" /> : <Play aria-hidden="true" className="size-4" />}
+          {running ? "Checking evidence" : complete ? "Run it again" : "Run evidence replay"}
+        </button>
       </div>
-      <div className="mt-4 flex flex-col gap-2 border-t border-border pt-3 sm:mt-5 sm:flex-row sm:items-center sm:justify-between">
-        <ol aria-label="Simulated verification steps" className="flex flex-wrap items-center gap-x-1 font-mono text-[9px] uppercase tracking-[0.1em] sm:text-[10px]">
-          {verificationSteps.map((name, index) => (
-            <li key={name} className="flex items-center gap-1">
-              <span aria-current={step === index ? "step" : undefined} className={`transition-colors duration-150 motion-reduce:transition-none ${step === index ? "font-semibold text-coral" : step > index ? "text-foreground" : "text-muted-foreground"}`}>{name}</span>
-              {index < verificationSteps.length - 1 && <ArrowRight aria-hidden="true" className="h-3 w-3 text-muted-foreground" />}
+
+      <ol aria-label="Evidence replay steps" className="relative mt-10 grid gap-3 sm:grid-cols-4 sm:gap-4">
+        <span aria-hidden="true" className="absolute bottom-8 left-[4px] top-3 w-px bg-white/20 sm:bottom-auto sm:left-[12.5%] sm:right-[12.5%] sm:top-[4px] sm:h-px sm:w-auto" />
+        {replaySteps.map((label, index) => {
+          const reached = step >= index;
+          const isCurrent = running && step === index;
+          return (
+            <li key={label} data-evidence-step={index} className="relative min-h-11 min-w-0 pl-5 sm:min-h-[72px] sm:pl-0 sm:pt-6">
+              <span aria-hidden="true" className={`absolute left-0 top-[7px] size-[9px] rounded-full sm:top-0 ${reached ? "bg-[var(--identity-paper-dark-ink)]" : "bg-white/30"}`} />
+              <p className={`text-sm leading-6 ${reached ? "font-semibold text-white" : "text-white/55"}`}>{label}</p>
+              {isCurrent && <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--identity-paper-dark-ink)]">In progress</span>}
+              {complete && index === replaySteps.length - 1 && <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--identity-paper-dark-ink)]">Mismatch found</span>}
             </li>
-          ))}
-        </ol>
-        <button type="button" onClick={runVerification} disabled={isRunning} aria-busy={isRunning} className={actionClass}>
-          {isRunning ? "Simulating verification" : hasResult ? "Run verification again" : "Run verification"}
-          <ArrowRight aria-hidden="true" className="h-4 w-4" />
-        </button>
-      </div>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} role="status" aria-live="polite" aria-atomic="true" className={`mt-3 min-h-[34px] border-t border-border pt-3 ${artifactBodyClass} sm:mt-4`}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.p key={hasResult ? "result" : "idle"} initial={reduceMotion ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }} transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: actionEase }}>
-            {hasResult ? <><span className="font-mono text-[9px] font-semibold uppercase tracking-[0.1em] text-coral sm:text-[10px]">Assertion failed - simulated</span><br />Expected Maya Putri; observed Nadia Putri after reload.</> : "Simulated only - this interaction does not call a backend or run a production test suite."}
-          </motion.p>
-        </AnimatePresence>
-      </motion.div>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} className={`mt-3 ${artifactBodyClass} sm:mt-4`}>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.p key={hasResult ? "evidence-result" : "evidence-idle"} initial={reduceMotion ? false : { opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }} transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: actionEase }}>
-            {hasResult ? "Evidence confirms a mismatch in this example; it does not establish the cause." : "A reproducible comparison makes the mismatch reviewable."}
-          </motion.p>
-        </AnimatePresence>
-      </motion.div>
-    </ArtifactFrame>
+          );
+        })}
+      </ol>
+
+      <p role="status" aria-live="polite" className="mt-8 min-h-7 border-l-2 border-[var(--identity-paper-dark-ink)] pl-4 text-base leading-7 text-white/75">
+        {complete ? (
+          <span className="inline-flex items-start gap-2"><CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[var(--identity-paper-dark-ink)]" /> Evidence confirms a mismatch in this example: the previous name returned after reload.</span>
+        ) : running ? "The profile is being reloaded and compared in this local simulation." : "No result is assumed. Run the replay to see the observed state."}
+      </p>
+    </motion.div>
   );
 }
 
-const assessment = [
-  { label: "Observed failure", text: "The previous name returned after reload." },
-  { label: "Potential impact", text: "A user may repeat a change they believe was saved." },
-  { label: "Still unresolved", text: "The evidence does not locate where the write failed." },
-  { label: "Next action", text: "Trace the write before attributing a cause." },
-  { label: "Retest", text: "Save the new name, reload, and assert it persists." },
-] as const;
-
-function DecisionArtifact() {
-  const [revealed, setRevealed] = useState(false);
-  const reduceMotion = useReducedMotionPreference();
+function DecisionScene({ reduceMotion }: { reduceMotion: boolean }) {
+  const [decision, setDecision] = useState<DecisionId | null>(null);
+  const choices: { id: DecisionId; label: string; detail: string }[] = [
+    { id: "inspect-write", label: "Inspect the write acknowledgement", detail: "Compare its confirmation with the value returned after reload." },
+    { id: "hold-release", label: "Hold release until persistence is verified", detail: "Wait for a confirmed read-back before release." },
+  ];
 
   return (
-    <ArtifactFrame label="04 / Quality assessment - illustrative scope">
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-y-4">
-        {assessment.map((item) => (
-          <div key={item.label} className="min-w-0 border-t border-border pt-2 first:border-0 first:pt-0 sm:first:border-t sm:first:pt-2">
-            <dt className={detailLabelClass}>{item.label}</dt>
-            <dd className={`mt-1 ${artifactBodyClass} text-foreground`}>{item.text}</dd>
-          </div>
-        ))}
-      </dl>
-      <motion.div layout={!reduceMotion} transition={artifactLayoutTransition} className="mt-4 border-t border-border pt-3 sm:mt-5 sm:pt-4">
-        <button type="button" aria-expanded={revealed} onClick={() => setRevealed((value) => !value)} className={actionClass}>
-          {revealed ? "Hide assessment" : "Reveal assessment"}
-          <ArrowRight aria-hidden="true" className={`h-4 w-4 transition-transform motion-reduce:transition-none ${revealed ? "rotate-90" : ""}`} />
-        </button>
-        <AnimatePresence initial={false}>
-          {revealed && (
-            <motion.p key="assessment-recommendation" role="status" aria-live="polite" initial={reduceMotion ? false : { opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }} transition={reduceMotion ? { duration: 0 } : { duration: 0.24, ease: actionEase }} className="mt-3 max-w-[58ch] font-display text-[16px] font-medium leading-[1.4] text-foreground sm:text-[18px]">
-              Do not mark this profile-save flow verified until the issue is resolved and regression checks pass.
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </ArtifactFrame>
-  );
-}
-
-function Artifact({ id }: { id: StageId }) {
-  if (id === "signal") return <SignalArtifact />;
-  if (id === "connection") return <ConnectionArtifact />;
-  if (id === "evidence") return <EvidenceArtifact />;
-  return <DecisionArtifact />;
-}
-
-function SlidingScene({ stage, index, direction, reduceMotion, active }: { stage: (typeof stages)[number]; index: number; direction: Direction; reduceMotion: boolean; active: boolean }) {
-  const isPresent = useIsPresent();
-  return (
-    <motion.article aria-hidden={!isPresent} inert={!isPresent} custom={{ direction, reduceMotion }} variants={sceneVariants} initial="enter" animate="center" exit="exit"
-      transition={reduceMotion ? { duration: 0 } : { x: { duration: 0.38, ease: [0.65, 0, 0.35, 1] }, opacity: { duration: 0.38, ease: "easeOut" }}}
-      data-active-scene={isPresent && active ? "true" : undefined}
-      className="col-start-1 row-start-1 grid min-w-0 self-start items-center gap-6 py-3 sm:gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-[clamp(44px,7vw,104px)]">
-      <div className="order-2 max-w-[410px] lg:order-1">
-        <div className="mb-3 flex items-center gap-3 sm:mb-[17px]">
-          <span className="font-mono text-xs tracking-[0.12em] text-coral">0{index + 1}</span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{stage.label}</span>
-        </div>
-        <h3 className="font-display text-[30px] font-semibold leading-[1.06] tracking-[-0.045em] text-foreground sm:text-[clamp(31px,3.2vw,43px)] sm:leading-[1.05]">{stage.title}</h3>
-        <p className="mt-3 max-w-[39ch] text-[13px] leading-[1.62] text-muted-foreground sm:mt-5 sm:text-[15px] sm:leading-[1.75]">{stage.summary}</p>
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -6 }}
+      transition={reduceMotion ? { duration: 0 } : sceneTransition}
+      className="min-h-[340px] p-6 sm:min-h-[360px] sm:p-10"
+    >
+      <div className="max-w-2xl">
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-[var(--identity-paper-dark-ink)]">Choose a proportionate next step</p>
+        <h3 className="mt-4 font-display text-3xl font-semibold leading-tight tracking-[-0.035em] text-white sm:text-4xl">
+          The mismatch is evidence. The cause is still open.
+        </h3>
+        <p className="mt-4 text-base leading-8 text-white/70">
+          Choose a QA next step. The simulation does not decide release ownership.
+        </p>
       </div>
-      <div className="order-1 min-w-0 lg:order-2"><Artifact id={stage.id} /></div>
-    </motion.article>
+
+      <div className="mt-8 grid gap-2 sm:grid-cols-2 sm:gap-6">
+        {choices.map((choice) => {
+          const selected = decision === choice.id;
+          return (
+            <button
+              key={choice.id}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => setDecision(choice.id)}
+              className={`group flex min-h-11 cursor-pointer items-start gap-3 py-3 text-left ${canvasFocusClass}`}
+            >
+              <span className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border transition-colors motion-reduce:transition-none ${selected ? "border-[var(--identity-paper-dark-ink)] bg-[var(--identity-paper-dark-ink)] text-[#101B29]" : "border-white/45 text-transparent group-hover:border-white"}`}>
+                {selected && <Check aria-hidden="true" className="size-3.5" />}
+              </span>
+              <span>
+                <span className={`block text-sm font-semibold leading-6 transition-colors motion-reduce:transition-none ${selected ? "text-white" : "text-white/75 group-hover:text-white"}`}>{choice.label}</span>
+                <span className="mt-1 block text-base leading-7 text-white/60">{choice.detail}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {decision && <p role="status" aria-live="polite" className="mt-5 min-h-7 border-l-2 border-[var(--identity-paper-dark-ink)] pl-4 text-base leading-7 text-white/75">Next step selected for this scenario.</p>}
+    </motion.div>
   );
+}
+
+function ChapterScene({ chapter, reduceMotion }: { chapter: ChapterId; reduceMotion: boolean }) {
+  switch (chapter) {
+    case "signal":
+      return <SignalScene reduceMotion={reduceMotion} />;
+    case "connection":
+      return <ConnectionScene reduceMotion={reduceMotion} />;
+    case "evidence":
+      return <EvidenceScene reduceMotion={reduceMotion} />;
+    case "decision":
+      return <DecisionScene reduceMotion={reduceMotion} />;
+  }
 }
 
 export function QaJourney() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [direction, setDirection] = useState<Direction>(1);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const [panelHeight, setPanelHeight] = useState<number | undefined>();
-  const [animatePanelHeight, setAnimatePanelHeight] = useState(false);
+  const [activeChapter, setActiveChapter] = useState<ChapterId>("signal");
+  const [sceneHeight, setSceneHeight] = useState(0);
+  const sceneMeasureRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotionPreference();
-  const activeStage = stages[activeIndex];
+  const chapterIndex = chapters.findIndex((chapter) => chapter.id === activeChapter);
+  const active = chapters[chapterIndex];
 
-  useLayoutEffect(() => {
-    const activeScene = panelRef.current?.querySelector<HTMLElement>("[data-active-scene='true']");
-    if (!activeScene) return;
+  useEffect(() => {
+    const scene = sceneMeasureRef.current;
+    if (!scene) return;
 
-    const measureHeight = () => {
-      const nextHeight = activeScene.getBoundingClientRect().height;
-      setPanelHeight((currentHeight) => currentHeight === nextHeight ? currentHeight : nextHeight);
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(scene.getBoundingClientRect().height);
+      if (nextHeight > 0) setSceneHeight((current) => current === nextHeight ? current : nextHeight);
     };
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(scene);
+    updateHeight();
 
-    measureHeight();
-    const observer = new ResizeObserver(measureHeight);
-    observer.observe(activeScene);
-    const animationFrame = window.requestAnimationFrame(() => setAnimatePanelHeight(true));
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      observer.disconnect();
-    };
-  }, [activeIndex]);
-
-  function navigateTo(index: number) {
-    if (index < 0 || index >= stages.length || index === activeIndex) return;
-    setDirection(index > activeIndex ? 1 : -1);
-    setActiveIndex(index);
-  }
-
-  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentIndex: number) {
-    let nextIndex = currentIndex;
-    if (event.key === "ArrowRight") nextIndex = Math.min(currentIndex + 1, stages.length - 1);
-    else if (event.key === "ArrowLeft") nextIndex = Math.max(currentIndex - 1, 0);
-    else if (event.key === "Home") nextIndex = 0;
-    else if (event.key === "End") nextIndex = stages.length - 1;
-    else return;
-    event.preventDefault();
-    navigateTo(nextIndex);
-    tabRefs.current[nextIndex]?.focus();
-  }
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="mx-auto flex min-h-[100svh] w-[calc(100%-2.5rem)] max-w-[1280px] flex-col pb-7 pt-[18px] sm:w-[calc(100%-3.5rem)] sm:py-7 xl:w-[calc(100%-7rem)]">
-      <div className="flex h-[38px] shrink-0 items-center border-b border-border pb-[13px] font-display text-[11px] font-semibold tracking-[0.04em] text-foreground sm:h-11 sm:pb-[17px] sm:text-xs">
-        SIGNAL TRACE <span className="ml-2 font-mono text-[8px] font-normal uppercase tracking-[0.1em] text-muted-foreground sm:text-[10px] sm:tracking-[0.11em]">/ Kinetic editorial</span>
-      </div>
-      <header className="grid grid-cols-1 items-end gap-4 pb-8 pt-9 sm:grid-cols-[minmax(0,8fr)_minmax(210px,3fr)] sm:gap-7 sm:pb-[38px] sm:pt-[54px] lg:gap-[52px]">
-        <div>
-          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-coral sm:text-[10px]">An interactive QA investigation</p>
-          <h2 id="qa-motion-heading" className="mt-3 max-w-[880px] font-display text-[clamp(37px,10vw,43px)] font-semibold leading-[1.02] tracking-[-0.05em] text-foreground sm:text-[clamp(46px,5.3vw,74px)] sm:leading-[.99] sm:tracking-[-0.055em]">A profile says saved.<br className="hidden sm:block" /> Reload says otherwise.</h2>
-        </div>
-        <p className="max-w-[300px] border-l border-border pl-3 text-xs leading-[1.55] text-muted-foreground sm:mb-[5px] sm:pl-[18px] sm:text-sm sm:leading-[1.7]">
-          <span className="mb-1 block font-mono text-[9px] font-semibold uppercase tracking-[0.17em] text-coral sm:mb-2 sm:text-[10px]">Illustrative profile update</span>
-          A user changes their profile name. The interface confirms it was saved; after reload, the previous name remains.
+    <div className="mx-auto max-w-7xl px-6 py-20 sm:py-28 lg:px-8">
+      <header className="grid items-end gap-6 pb-10 sm:pb-14 lg:grid-cols-[minmax(0,1fr)_minmax(250px,0.72fr)] lg:gap-20">
+        <h2 id="qa-motion-heading" className="max-w-4xl font-display text-4xl font-semibold leading-[1.09] tracking-[-0.045em] text-foreground sm:text-6xl">
+          A success message is only the start of the story.
+        </h2>
+        <p className="max-w-xl text-base leading-8 text-muted-foreground lg:pb-1">
+          Follow one profile update from the first signal to a defensible next step. Move through the evidence; leave the cause open until it is proven.
         </p>
       </header>
-      <div className="flex flex-col border-y border-border sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <LayoutGroup id="qa-motion-chapter-tabs">
-          <div role="tablist" aria-label="Signal Trace chapters" aria-orientation="horizontal" onPointerLeave={() => setHoveredIndex(null)} className="grid h-[53px] w-full grid-cols-4 sm:h-[62px] sm:max-w-[740px]">
-            {stages.map((stage, index) => {
-              const selected = index === activeIndex;
+
+      <div className="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
+        <nav aria-label="QA investigation chapters" className="min-w-0 lg:pt-2">
+          <ol className="grid grid-cols-2 gap-x-2 gap-y-1 min-[360px]:grid-cols-4 lg:grid-cols-1 lg:gap-2">
+            {chapters.map((chapter, index) => {
+              const selected = chapter.id === activeChapter;
+              const reached = index <= chapterIndex;
               return (
-                <button key={stage.id} ref={(node) => { tabRefs.current[index] = node; }} type="button" role="tab" id={`qa-motion-tab-${stage.id}`} aria-controls="qa-motion-panel" aria-selected={selected} tabIndex={selected ? 0 : -1} onPointerEnter={(event) => { if (event.pointerType !== "touch") setHoveredIndex(index); }} onClick={() => navigateTo(index)} onKeyDown={(event) => handleTabKeyDown(event, index)} className={`qa-chapter relative flex min-h-11 cursor-pointer items-center gap-1 px-[2px] text-left font-mono text-[9px] uppercase tracking-[0.01em] transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-[62px] sm:gap-[10px] sm:px-4 sm:text-[11px] sm:tracking-[0.07em] sm:first:pl-0 motion-reduce:transition-none ${selected ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                  <span className="text-[8px] text-coral sm:text-[10px]">0{index + 1}</span><span>{stage.label}</span>
-                {hoveredIndex === index && <motion.span layoutId="qa-motion-hover-indicator" aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: selected ? 0 : 1 }} transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: reduceMotion ? 0 : 0.18, ease: "easeOut" } }} className="absolute inset-x-0 -bottom-px h-px bg-foreground/55 sm:right-4 sm:left-0" />}
-                  {selected && <motion.span layoutId="qa-motion-active-indicator" aria-hidden="true" initial={false} transition={{ layout: reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.22, 1, 0.36, 1] } }} className="absolute inset-x-0 -bottom-px h-0.5 bg-coral sm:right-4 sm:left-0" />}
-                </button>
+                <li key={chapter.id} className="min-w-0">
+                  <button
+                    type="button"
+                    aria-current={selected ? "step" : undefined}
+                    onClick={() => setActiveChapter(chapter.id)}
+                    className={`group relative flex min-h-[58px] w-full min-w-0 cursor-pointer flex-col items-start justify-center gap-1 rounded-sm px-2 text-left transition-colors duration-200 hover:bg-foreground/5 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-[360px]:min-h-[64px] lg:min-h-[58px] lg:flex-row lg:items-center lg:gap-4 lg:px-3 ${selected ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <span aria-hidden="true" className={`absolute bottom-1 left-2 right-2 h-px rounded-full bg-coral transition-opacity duration-200 motion-reduce:transition-none lg:bottom-2 lg:left-0 lg:right-auto lg:top-2 lg:h-auto lg:w-0.5 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
+                    <span className={`font-mono text-[10px] tracking-[0.12em] ${reached ? "text-coral" : "text-muted-foreground"}`}>0{index + 1}</span>
+                    <span className={`text-xs font-semibold sm:text-sm ${selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>{chapter.label}</span>
+                  </button>
+                </li>
               );
             })}
+          </ol>
+          <p className="mt-3 hidden text-xs leading-5 text-muted-foreground lg:block">Select a chapter or follow the evidence in order.</p>
+        </nav>
+
+        <div className="min-w-0">
+          <div
+            data-qa-canvas
+            className="border border-border/60 bg-[#101B29] text-white"
+            style={{ backgroundImage: "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)", backgroundSize: "48px 48px" }}
+          >
+            <div className="flex min-h-12 items-center justify-between gap-4 border-b border-white/15 px-6 py-3 sm:px-10">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-white/65 sm:text-xs">Profile persistence / evidence trail</p>
+              <p className="shrink-0 font-mono text-[10px] tracking-[0.12em] text-[var(--identity-paper-dark-ink)]">0{chapterIndex + 1} / 04</p>
+            </div>
+            <div aria-live="polite" aria-atomic="true" className="sr-only">{active.title}</div>
+            <motion.div
+              animate={{ height: sceneHeight || "auto" }}
+              transition={reduceMotion ? { duration: 0 } : { height: { ...sceneTransition, duration: 0.26 } }}
+              className="overflow-hidden"
+            >
+              <div ref={sceneMeasureRef}>
+                <AnimatePresence mode="wait" initial={false}>
+                  <ChapterScene key={activeChapter} chapter={activeChapter} reduceMotion={reduceMotion} />
+                </AnimatePresence>
+              </div>
+            </motion.div>
           </div>
-          <p className="pb-2 text-[10px] text-muted-foreground sm:pb-0 sm:text-xs">Select a chapter or follow the trace.</p>
-        </LayoutGroup>
-      </div>
-      <div className="mt-6 sm:mt-[42px]">
-        <motion.div initial={false} animate={panelHeight === undefined ? undefined : { height: panelHeight }} transition={reduceMotion || !animatePanelHeight ? { duration: 0 } : { height: { duration: 0.38, ease: [0.65, 0, 0.35, 1] } }} className="relative overflow-hidden">
-          <div ref={panelRef} id="qa-motion-panel" role="tabpanel" aria-labelledby={`qa-motion-tab-${activeStage.id}`} tabIndex={0} className="grid min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <AnimatePresence initial={false} mode="sync" custom={{ direction, reduceMotion }}>
-              <SlidingScene key={activeStage.id} stage={activeStage} index={activeIndex} direction={direction} reduceMotion={reduceMotion} active />
-            </AnimatePresence>
+
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-muted-foreground">
+            Conceptual example only — this local simulation represents no client project or real test result.
+          </p>
+
+          <div className="mt-5 flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={() => setActiveChapter(chapters[Math.max(0, chapterIndex - 1)].id)}
+              disabled={chapterIndex === 0}
+              className={`inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none ${sectionFocusClass}`}
+            >
+              <span aria-hidden="true" className="rotate-180"><ArrowRight className="size-4" /></span>
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveChapter(chapters[Math.min(chapters.length - 1, chapterIndex + 1)].id)}
+              disabled={chapterIndex === chapters.length - 1}
+              className={`inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-foreground transition-colors hover:text-coral disabled:cursor-not-allowed disabled:opacity-45 motion-reduce:transition-none ${sectionFocusClass}`}
+            >
+              Continue <ArrowRight aria-hidden="true" className="size-4" />
+            </button>
           </div>
-        </motion.div>
+        </div>
       </div>
-      <div className="mt-5 grid grid-cols-2 items-center gap-x-2 border-t border-border pt-3 sm:mt-[31px] sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:pt-4">
-        <button type="button" onClick={() => navigateTo(activeIndex - 1)} disabled={activeIndex === 0} className="group flex min-h-11 cursor-pointer items-center gap-[7px] text-left disabled:cursor-not-allowed disabled:opacity-40 sm:gap-[11px]">
-          <ArrowLeft aria-hidden="true" className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:-translate-x-1 motion-reduce:transition-none" />
-          <span><small className="mb-[3px] block font-mono text-[8px] uppercase tracking-[0.11em] text-muted-foreground sm:text-[9px]">Previous chapter</small><strong className="block font-display text-xs font-medium text-foreground sm:text-[13px]">{activeIndex ? stages[activeIndex - 1].label : "Start of trace"}</strong></span>
-        </button>
-        <p className="col-span-2 row-start-1 mb-2 font-mono text-[9px] tracking-[0.1em] text-muted-foreground sm:col-span-1 sm:row-auto sm:mb-0 sm:text-center sm:text-[10px]">0{activeIndex + 1} / 04</p>
-        <button type="button" onClick={() => navigateTo(activeIndex + 1)} disabled={activeIndex === stages.length - 1} className="group col-start-2 row-start-2 flex min-h-11 cursor-pointer items-center justify-self-end gap-[7px] text-right disabled:cursor-not-allowed disabled:opacity-40 sm:col-start-auto sm:row-auto sm:gap-[11px]">
-          <span><small className="mb-[3px] block font-mono text-[8px] uppercase tracking-[0.11em] text-muted-foreground sm:text-[9px]">Continue to</small><strong className="block font-display text-xs font-medium text-foreground sm:text-[13px]">{activeIndex < stages.length - 1 ? stages[activeIndex + 1].label : "Trace complete"}</strong></span>
-          <ArrowRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transition-none" />
-        </button>
-      </div>
-      <p className="mt-4 font-mono text-[8px] tracking-[0.04em] text-muted-foreground sm:mt-6 sm:text-[10px]">Conceptual example only - no client project or real test result is represented.</p>
     </div>
   );
 }
