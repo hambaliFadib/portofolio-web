@@ -20,6 +20,7 @@ const themeOutput = path.join(outputRoot, 'theme-toggle');
 const homepageOutput = path.join(outputRoot, 'homepage');
 const identityOutput = path.join(outputRoot, 'identity');
 const projectsOutput = path.join(outputRoot, 'projects');
+const thinkingOutput = path.join(outputRoot, 'thinking');
 
 if (path.dirname(outputRoot) !== artifactRoot) {
   throw new Error(`Browser regression output must be a unique child of ${artifactRoot}`);
@@ -43,6 +44,11 @@ const suites = [
     name: 'Editorial projects showcase and ASCII lens',
     script: 'scripts/verify-projects-showcase.mjs',
     env: { PORTFOLIO_PROJECTS_OUTPUT_DIR: projectsOutput },
+  },
+  {
+    name: 'Thinking editorial principles',
+    script: 'scripts/verify-thinking-editorial.mjs',
+    env: { PORTFOLIO_THINKING_OUTPUT_DIR: thinkingOutput },
   },
   {
     name: 'Theme Toggle',
@@ -88,6 +94,12 @@ try {
   const homepage = readAndVerifyHomepageReport(path.join(homepageOutput, 'repository-regression.json'), origin);
   const theme = JSON.parse(await fs.readFile(path.join(themeOutput, 'theme-toggle-verification.json'), 'utf8'));
   const identity = JSON.parse(await fs.readFile(path.join(identityOutput, 'results.json'), 'utf8'));
+  const thinking = JSON.parse(await fs.readFile(path.join(thinkingOutput, 'thinking-regression.json'), 'utf8'));
+  const expectedThinking = ['desktop-light', 'mobile-light', 'desktop-dark', 'reduced-motion'];
+  if (!Array.isArray(thinking.results) || thinking.results.length !== expectedThinking.length ||
+      thinking.results.some((result, index) => result.mode !== expectedThinking[index] || result.passed !== true)) {
+    throw new Error('Thinking editorial evidence is missing or inconsistent.');
+  }
 
   if (!theme.counts || theme.counts.passed !== theme.checks?.length || theme.counts.failed !== 0 ||
       theme.checks.some((check) => check.passed !== true) || theme.browserErrors?.length || theme.failures?.length) {
