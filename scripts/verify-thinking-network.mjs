@@ -318,7 +318,7 @@ try {
   results.push("mobile offscreen chapter selection resumes camera transition on re-entry PASS");
   await cameraResumeContext.close();
 
-  const pendingSelectionContext = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: "no-preference" });
+  const pendingSelectionContext = await browser.newContext({ viewport: { width: 1440, height: 1200 }, reducedMotion: "no-preference" });
   const pendingSelectionPage = await pendingSelectionContext.newPage();
   pendingSelectionPage.on("pageerror", (error) => pageErrors.push(error.message));
   let modelRequestStarted;
