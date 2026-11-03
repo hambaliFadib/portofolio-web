@@ -396,6 +396,7 @@ export function mountThinkingNetwork(
   let interactionActive = false;
   let settleUntil = 0;
   let inView = true;
+  let cameraPausedAt = 0;
   let resizeObserver: ResizeObserver | undefined;
   let visibilityObserver: IntersectionObserver | undefined;
   let selectedConceptId: string | null = null;
@@ -444,6 +445,7 @@ export function mountThinkingNetwork(
 
   const moveCamera = (target: THREE.Vector3, duration = 320) => {
     const nextPosition = cameraPositionFor(target);
+    cameraPausedAt = 0;
     if (reducedMotion) {
       camera.position.copy(nextPosition);
       controls.target.copy(target);
@@ -456,18 +458,23 @@ export function mountThinkingNetwork(
       fromPosition: camera.position.clone(), toPosition: nextPosition,
       fromTarget: controls.target.clone(), toTarget: target.clone(),
     };
+    if (!inView) cameraPausedAt = performance.now();
     cancelAnimationFrame(animationFrame);
     animationFrame = requestAnimationFrame(animate);
   };
 
   const animate = (now: number) => {
+    animationFrame = 0;
     if (disposed || !inView) return;
     if (cameraTween) {
       const progress = Math.min((now - cameraTween.start) / cameraTween.duration, 1);
       const eased = 1 - Math.pow(1 - progress, 4);
       camera.position.lerpVectors(cameraTween.fromPosition, cameraTween.toPosition, eased);
       controls.target.lerpVectors(cameraTween.fromTarget, cameraTween.toTarget, eased);
-      if (progress >= 1) cameraTween = null;
+      if (progress >= 1) {
+        cameraTween = null;
+        cameraPausedAt = 0;
+      }
       controls.update();
     }
     renderer.render(scene, camera);
@@ -634,7 +641,9 @@ export function mountThinkingNetwork(
         camera.position.copy(cameraTween.toPosition);
         controls.target.copy(cameraTween.toTarget);
         cameraTween = null;
+        cameraPausedAt = 0;
         cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
         controls.update();
       }
     }
@@ -673,10 +682,19 @@ export function mountThinkingNetwork(
   if (typeof IntersectionObserver !== "undefined") {
     visibilityObserver = new IntersectionObserver(([entry]) => {
       inView = entry.isIntersecting;
-      if (inView) render();
+      if (inView) {
+        if (cameraTween) {
+          if (cameraPausedAt) cameraTween.start += performance.now() - cameraPausedAt;
+          cameraPausedAt = 0;
+          animationFrame = requestAnimationFrame(animate);
+        }
+        else render();
+      }
       else {
+        if (cameraTween) cameraPausedAt = performance.now();
         cancelAnimationFrame(animationFrame);
         cancelAnimationFrame(interactionFrame);
+        animationFrame = 0;
         interactionFrame = 0;
         interactionActive = false;
       }

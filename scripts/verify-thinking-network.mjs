@@ -278,6 +278,46 @@ try {
     await mobileContext.close();
   }
 
+  const cameraResumeContext = await browser.newContext({ viewport: { width: 390, height: 640 }, reducedMotion: "no-preference" });
+  await cameraResumeContext.addInitScript(() => {
+    window.__thinkingFrames = 0;
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...args) {
+      const context = getContext.call(this, type, ...args);
+      if (type === "webgl2" && context && !context.__thinkingCounter) {
+        context.__thinkingCounter = true;
+        const clear = context.clear.bind(context);
+        context.clear = (...clearArgs) => {
+          window.__thinkingFrames += 1;
+          return clear(...clearArgs);
+        };
+      }
+      return context;
+    };
+  });
+  const cameraResumePage = await cameraResumeContext.newPage();
+  cameraResumePage.on("pageerror", (error) => pageErrors.push(error.message));
+  await cameraResumePage.goto(`${origin}/?theme=light#thinking`, { waitUntil: "networkidle" });
+  await alignSection(cameraResumePage);
+  const resumeCanvas = cameraResumePage.locator("#thinking canvas");
+  await cameraResumePage.waitForFunction(() => document.querySelector("#thinking canvas")?.parentElement?.dataset.thinkingReady === "true");
+  const decisionButton = cameraResumePage.getByRole("navigation", { name: "Explore thinking concepts" }).getByRole("button", { name: /Decision Making/ });
+  await decisionButton.scrollIntoViewIfNeeded();
+  await cameraResumePage.waitForFunction(() => {
+    const rect = document.querySelector("#thinking canvas")?.getBoundingClientRect();
+    return rect && (rect.bottom <= 0 || rect.top >= window.innerHeight);
+  });
+  await cameraResumePage.waitForTimeout(80);
+  await decisionButton.click();
+  assert.equal(await decisionButton.getAttribute("aria-pressed"), "true", "offscreen concept selection failed");
+  const framesBeforeResume = await cameraResumePage.evaluate(() => window.__thinkingFrames);
+  await resumeCanvas.scrollIntoViewIfNeeded();
+  await cameraResumePage.waitForTimeout(600);
+  const resumedFrames = (await cameraResumePage.evaluate(() => window.__thinkingFrames)) - framesBeforeResume;
+  assert.ok(resumedFrames >= 3, `camera transition did not resume when the canvas re-entered view: ${resumedFrames} rendered frame(s)`);
+  results.push("mobile offscreen chapter selection resumes camera transition on re-entry PASS");
+  await cameraResumeContext.close();
+
   await page.emulateMedia({ reducedMotion: "reduce" });
   await nav.getByRole("button", { name: /Evidence & Validation/ }).focus();
   await page.keyboard.press("Enter");
