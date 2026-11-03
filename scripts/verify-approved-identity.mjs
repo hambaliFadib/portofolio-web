@@ -203,14 +203,15 @@ try {
   const qa = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   observe(qa, "Journey");
   await qa.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "networkidle" });
+  const journey = qa.locator("#qa-motion");
   for (const stage of ["Signal", "Connection", "Evidence", "Decision"]) {
-    const chapter = qa.getByRole("button", { name: new RegExp(stage, "i") });
+    const chapter = journey.getByRole("button", { name: new RegExp(stage, "i") });
     await chapter.click();
     const selected = await chapter.getAttribute("aria-current");
     if (selected !== "step") failures.push(`Journey stage did not select: ${stage}`);
     results.journeys.push({ stage, selected });
   }
-  const signalChapter = qa.getByRole("button", { name: /signal/i });
+  const signalChapter = journey.getByRole("button", { name: /signal/i });
   await signalChapter.focus();
   await qa.keyboard.press("Enter");
   if ((await signalChapter.getAttribute("aria-current")) !== "step") failures.push("Signal chapter was not keyboard activatable");
@@ -218,12 +219,12 @@ try {
   await qa.getByText(/the earlier value returned/i).waitFor();
   if (!(await qa.getByText("Maya Putri").count())) failures.push("Signal replay did not show the previous profile value");
   results.interactions.push("Signal read-back observation");
-  await qa.getByRole("button", { name: /connection/i }).click();
+  await journey.getByRole("button", { name: /connection/i }).click();
   const persistenceNode = qa.getByRole("button", { name: /stored value/i });
   await persistenceNode.click();
   if ((await persistenceNode.getAttribute("aria-pressed")) !== "true") failures.push("Connection node did not select");
   results.interactions.push("Connection node selection");
-  await qa.getByRole("button", { name: /evidence/i }).click();
+  await journey.getByRole("button", { name: /evidence/i }).click();
   await qa.getByRole("button", { name: "Run evidence replay" }).click();
   await qa.getByText(/Evidence confirms a mismatch in this example/).waitFor();
   await qa.getByRole("button", { name: /run it again/i }).click();
@@ -234,7 +235,7 @@ try {
   await qa.emulateMedia({ reducedMotion: "no-preference" });
   results.interactions.push("In-flight verification completes when reduced motion is enabled");
   results.interactions.push("Evidence replay and reduced-motion completion");
-  await qa.getByRole("button", { name: /decision/i }).click();
+  await journey.getByRole("button", { name: /decision/i }).click();
   const nextStep = qa.getByRole("button", { name: /hold release until persistence is verified/i });
   await nextStep.click();
   if ((await nextStep.getAttribute("aria-pressed")) !== "true") failures.push("Decision recommendation did not select");
