@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -145,6 +144,62 @@ export function Header() {
     };
   }, [persona]);
 
+  // Native fragment scrolling may start before Next finishes hydration. Once
+  // the initial fonts are ready, correct only a missed/misaligned deep link.
+  // This is a single bounded check; same-page clicks remain native anchors.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+
+    let cancelled = false;
+    let frame: number | null = null;
+    const cancelAlignment = () => {
+      cancelled = true;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+        frame = null;
+      }
+    };
+    const handleHashChange = () => {
+      if (window.location.hash.slice(1) !== id) cancelAlignment();
+    };
+    const handleScrollIntent = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "].includes(event.key)) {
+        cancelAlignment();
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("wheel", cancelAlignment, { passive: true });
+    window.addEventListener("touchstart", cancelAlignment, { passive: true });
+    window.addEventListener("keydown", handleScrollIntent);
+
+    void document.fonts.ready.then(() => {
+      if (cancelled || window.location.hash.slice(1) !== id) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        if (cancelled || window.location.hash.slice(1) !== id) return;
+        const target = document.getElementById(id);
+        if (!target) return;
+
+        const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+        const pageTop = target.getBoundingClientRect().top + window.scrollY;
+        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        const desiredScroll = Math.min(maxScroll, Math.max(0, pageTop - margin));
+        if (Math.abs(window.scrollY - desiredScroll) > 30) {
+          window.scrollTo({ top: desiredScroll, behavior: "instant" });
+        }
+      });
+    });
+
+    return () => {
+      cancelAlignment();
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("wheel", cancelAlignment);
+      window.removeEventListener("touchstart", cancelAlignment);
+      window.removeEventListener("keydown", handleScrollIntent);
+    };
+  }, []);
+
   // Direct hash navigation (e.g. /#thinking on load) initializes
   // the correct active state even before any scroll event fires.
   useEffect(() => {
@@ -275,7 +330,7 @@ export function Header() {
         <ul className="hidden items-center gap-8 lg:flex">
           {visibleNavItems.map((item) => (
             <li key={item.id}>
-              <Link
+              <a
                 href={`#${item.id}`}
                 aria-current={activeSection === item.id ? "true" : undefined}
                 className={cn(
@@ -296,7 +351,7 @@ export function Header() {
                       : "scale-x-0",
                   )}
                 />
-              </Link>
+              </a>
             </li>
           ))}
         </ul>
@@ -305,13 +360,13 @@ export function Header() {
             single solid contact CTA */}
         <div className="flex items-center gap-3">
           <ThemeToggle className="h-11 w-11" />
-          {persona === "qa" && <Link
+          {persona === "qa" && <a
             href="#contact"
             aria-current={activeSection === CONTACT_ID ? "true" : undefined}
             className="hidden h-9 items-center rounded-md bg-foreground px-4 text-sm font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:inline-flex"
           >
             Get in Touch
-          </Link>}
+          </a>}
           {/* Mobile menu toggle */}
           <button
             ref={menuToggleRef}
@@ -348,7 +403,7 @@ export function Header() {
             <ul className="flex flex-col">
               {visibleNavItems.map((item, index) => (
                 <li key={item.id}>
-                  <Link
+                  <a
                     href={`#${item.id}`}
                     ref={index === 0 ? firstMenuItemRef : undefined}
                     aria-current={activeSection === item.id ? "true" : undefined}
@@ -370,19 +425,19 @@ export function Header() {
                           : "bg-transparent",
                       )}
                     />
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
 
-            {persona === "qa" && <Link
+            {persona === "qa" && <a
               href="#contact"
               aria-current={activeSection === CONTACT_ID ? "true" : undefined}
               className="mt-6 flex min-h-[52px] items-center justify-center rounded-md bg-foreground px-4 text-base font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={handleMenuNavigate}
             >
               Get in Touch
-            </Link>}
+            </a>}
           </div>
         </div>
       ), portalRoot)}

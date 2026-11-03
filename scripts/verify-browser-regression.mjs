@@ -20,6 +20,7 @@ const themeOutput = path.join(outputRoot, 'theme-toggle');
 const homepageOutput = path.join(outputRoot, 'homepage');
 const identityOutput = path.join(outputRoot, 'identity');
 const projectsOutput = path.join(outputRoot, 'projects');
+const navigationOutput = path.join(outputRoot, 'navigation');
 
 if (path.dirname(outputRoot) !== artifactRoot) {
   throw new Error(`Browser regression output must be a unique child of ${artifactRoot}`);
@@ -65,6 +66,14 @@ const suites = [
       IDENTITY_PREVIEW_URL: origin,
     },
   },
+  {
+    name: 'Navigation deep links, scrollspy, and history',
+    script: 'scripts/verify-navigation-reliability.mjs',
+    env: {
+      NAVIGATION_EVIDENCE_PATH: path.join(navigationOutput, 'navigation-reliability.json'),
+      NAVIGATION_PREVIEW_URL: origin,
+    },
+  },
 ];
 
 let failed = false;
@@ -88,6 +97,7 @@ try {
   const homepage = readAndVerifyHomepageReport(path.join(homepageOutput, 'repository-regression.json'), origin);
   const theme = JSON.parse(await fs.readFile(path.join(themeOutput, 'theme-toggle-verification.json'), 'utf8'));
   const identity = JSON.parse(await fs.readFile(path.join(identityOutput, 'results.json'), 'utf8'));
+  const navigation = JSON.parse(await fs.readFile(path.join(navigationOutput, 'navigation-reliability.json'), 'utf8'));
 
   if (!theme.counts || theme.counts.passed !== theme.checks?.length || theme.counts.failed !== 0 ||
       theme.checks.some((check) => check.passed !== true) || theme.browserErrors?.length || theme.failures?.length) {
@@ -100,7 +110,13 @@ try {
       !Array.isArray(identity.failures) || identity.failures.length) {
     throw new Error('Identity/persona evidence has missing checks, browser errors, or failures.');
   }
-  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}.`);
+  if (navigation.direct?.length !== 8 || navigation.direct.some((item) => item.pass !== true) ||
+      navigation.projectsReliability?.length !== 20 || navigation.projectsReliability.some((item) => item.pass !== true) ||
+      navigation.interactions?.length !== 10 || navigation.interactions.some((item) => item.pass !== true) ||
+      navigation.failures?.length) {
+    throw new Error('Navigation evidence has missing, failed, or inconsistent direct-link, repeatability, or interaction checks.');
+  }
+  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation ${navigation.direct.length} direct + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
 } catch (error) {
   evidenceFailures.push(error.message);
   failed = true;
