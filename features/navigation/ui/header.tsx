@@ -153,9 +153,31 @@ export function Header() {
 
     let cancelled = false;
     let frame: number | null = null;
+    const cancelAlignment = () => {
+      cancelled = true;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+        frame = null;
+      }
+    };
+    const handleHashChange = () => {
+      if (window.location.hash.slice(1) !== id) cancelAlignment();
+    };
+    const handleScrollIntent = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "].includes(event.key)) {
+        cancelAlignment();
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("wheel", cancelAlignment, { passive: true });
+    window.addEventListener("touchstart", cancelAlignment, { passive: true });
+    window.addEventListener("keydown", handleScrollIntent);
+
     void document.fonts.ready.then(() => {
-      if (cancelled) return;
+      if (cancelled || window.location.hash.slice(1) !== id) return;
       frame = window.requestAnimationFrame(() => {
+        frame = null;
+        if (cancelled || window.location.hash.slice(1) !== id) return;
         const target = document.getElementById(id);
         if (!target) return;
 
@@ -170,8 +192,11 @@ export function Header() {
     });
 
     return () => {
-      cancelled = true;
-      if (frame !== null) window.cancelAnimationFrame(frame);
+      cancelAlignment();
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("wheel", cancelAlignment);
+      window.removeEventListener("touchstart", cancelAlignment);
+      window.removeEventListener("keydown", handleScrollIntent);
     };
   }, []);
 

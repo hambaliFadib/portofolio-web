@@ -112,7 +112,7 @@ try {
   }
   if (navigation.direct?.length !== 8 || navigation.direct.some((item) => item.pass !== true) ||
       navigation.projectsReliability?.length !== 20 || navigation.projectsReliability.some((item) => item.pass !== true) ||
-      navigation.interactions?.length !== 8 || navigation.interactions.some((item) => item.pass !== true) ||
+      navigation.interactions?.length !== 10 || navigation.interactions.some((item) => item.pass !== true) ||
       navigation.failures?.length) {
     throw new Error('Navigation evidence has missing, failed, or inconsistent direct-link, repeatability, or interaction checks.');
   }

@@ -59,6 +59,39 @@ async function createPage(options = {}) {
   return page;
 }
 
+async function createFontGatedPage(options = {}) {
+  const page = await createPage(options);
+  await page.addInitScript(() => {
+    const addEventListener = window.addEventListener.bind(window);
+    window.__registeredAlignmentGuardEvents = [];
+    window.addEventListener = (type, listener, options) => {
+      if (["hashchange", "wheel", "touchstart", "keydown"].includes(type)) {
+        window.__registeredAlignmentGuardEvents.push(type);
+      }
+      addEventListener(type, listener, options);
+    };
+    let resolveFontGate;
+    const fontGate = new Promise((resolve) => {
+      resolveFontGate = resolve;
+    });
+    Object.defineProperty(document.fonts, "ready", {
+      configurable: true,
+      get() {
+        window.__fontGateRequested = true;
+        return fontGate;
+      },
+    });
+    window.__releaseFontGate = () => resolveFontGate(document.fonts);
+  });
+  return page;
+}
+
+async function waitForAlignmentGuard(page) {
+  await page.waitForFunction(() => window.__fontGateRequested === true
+    && ["hashchange", "wheel", "touchstart", "keydown"].every((type) =>
+      window.__registeredAlignmentGuardEvents?.includes(type)), { timeout: 8000 });
+}
+
 async function readState(page, id) {
   return page.evaluate((targetId) => {
     const target = document.getElementById(targetId);
@@ -217,6 +250,47 @@ try {
   await waitForNavigationEvent(exactDuplicate, eventSequence, "#thinking");
   await recordNavigation(exactDuplicate, "thinking", "#thinking", "same-anchor click from #thinking", results.interactions);
   await exactDuplicate.close();
+
+  const delayedCorrection = await createFontGatedPage();
+  await delayedCorrection.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
+  await waitForAlignmentGuard(delayedCorrection);
+  eventSequence = await delayedCorrection.evaluate(() => window.__navigationEventSequence);
+  await delayedCorrection.locator('nav[aria-label="Primary"] a[href="#about"]').click();
+  await waitForNavigationEvent(delayedCorrection, eventSequence, "#about");
+  await delayedCorrection.evaluate(() => window.__releaseFontGate());
+  await recordNavigation(delayedCorrection, "about", "#about", "deferred correction respects later anchor navigation", results.interactions);
+  await delayedCorrection.close();
+
+  const scrollIntent = await createFontGatedPage();
+  await scrollIntent.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
+  await waitForAlignmentGuard(scrollIntent);
+  await scrollIntent.waitForFunction(() => performance.now() - (window.__lastNavigationScrollAt ?? 0) >= 300);
+  const beforeManualScrollY = await scrollIntent.evaluate(() => scrollY);
+  await scrollIntent.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus();
+  });
+  await scrollIntent.keyboard.press("PageDown");
+  await scrollIntent.waitForFunction((previousY) => Math.abs(scrollY - previousY) > 2, beforeManualScrollY, { timeout: 3000 });
+  await scrollIntent.waitForFunction(() => performance.now() - (window.__lastNavigationScrollAt ?? 0) >= 250);
+  const manualScrollY = await scrollIntent.evaluate(() => scrollY);
+  await scrollIntent.evaluate(() => window.__releaseFontGate());
+  await scrollIntent.waitForTimeout(500);
+  const postIntentState = await readState(scrollIntent, "projects");
+  const scrollIntentRecord = {
+    label: "deferred correction respects deliberate keyboard scroll",
+    id: "projects",
+    pass: postIntentState.hash === "#projects"
+      && postIntentState.hashCount === 1
+      && Math.abs(manualScrollY - beforeManualScrollY) > 2
+      && Math.abs(postIntentState.scrollY - manualScrollY) <= 2,
+    beforeManualScrollY,
+    manualScrollY,
+    ...postIntentState,
+  };
+  results.interactions.push(scrollIntentRecord);
+  if (!scrollIntentRecord.pass) failures.push(scrollIntentRecord);
+  await scrollIntent.close();
 
   const theme = await createPage();
   await theme.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
