@@ -70,16 +70,21 @@ const conceptColorClasses: Record<(typeof concepts)[number]["color"], string> = 
 export function ThinkingNetwork() {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<NetworkScene | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [webglAvailable, setWebglAvailable] = useState(true);
   const [sceneReady, setSceneReady] = useState(false);
 
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
   const selectConcept = useCallback((id: string) => {
     setSelectedId(id);
     sceneRef.current?.select(id);
-    sceneRef.current?.focus(id);
-  }, []);
+    if (sceneReady) sceneRef.current?.focus(id);
+  }, [sceneReady]);
 
   const resetView = useCallback(() => {
     setSelectedId(null);
@@ -102,13 +107,10 @@ export function ThinkingNetwork() {
         if (disposed) return;
         scene = mountThinkingNetwork(host, (id) => {
           setSelectedId(id);
+          sceneRef.current?.select(id);
           if (id) sceneRef.current?.focus(id);
         }, setHoveredId, () => setSceneReady(true), () => setWebglAvailable(false));
         sceneRef.current = scene;
-        if (selectedId) {
-          scene.select(selectedId);
-          scene.focus(selectedId);
-        }
       } catch {
         setWebglAvailable(false);
       }
@@ -131,13 +133,15 @@ export function ThinkingNetwork() {
       scene?.dispose();
       sceneRef.current = null;
     };
-    // The scene is mounted once and reads the initial selection below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The scene is mounted once; pending selection is replayed when the model is ready.
   }, []);
 
   useEffect(() => {
-    if (sceneReady) sceneRef.current?.select(selectedId);
-  }, [sceneReady, selectedId]);
+    if (!sceneReady) return;
+    const selection = selectedIdRef.current;
+    sceneRef.current?.select(selection);
+    if (selection) sceneRef.current?.focus(selection);
+  }, [sceneReady]);
 
   const selected = selectedId ? conceptById.get(selectedId) : undefined;
   const hovered = hoveredId ? conceptById.get(hoveredId) : undefined;

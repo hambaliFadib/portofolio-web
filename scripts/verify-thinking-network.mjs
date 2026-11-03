@@ -318,6 +318,39 @@ try {
   results.push("mobile offscreen chapter selection resumes camera transition on re-entry PASS");
   await cameraResumeContext.close();
 
+  const pendingSelectionContext = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: "no-preference" });
+  const pendingSelectionPage = await pendingSelectionContext.newPage();
+  pendingSelectionPage.on("pageerror", (error) => pageErrors.push(error.message));
+  let modelRequestStarted;
+  const modelRequest = new Promise((resolve) => { modelRequestStarted = resolve; });
+  await pendingSelectionPage.route("**/models/hra-brain-female-v1.3.glb", async (route) => {
+    modelRequestStarted();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.continue();
+  });
+  await pendingSelectionPage.goto(`${origin}/?theme=light#thinking`, { waitUntil: "domcontentloaded" });
+  await alignSection(pendingSelectionPage);
+  const pendingCanvas = pendingSelectionPage.locator("#thinking canvas");
+  const pendingRiskButton = pendingSelectionPage.getByRole("navigation", { name: "Explore thinking concepts" }).getByRole("button", { name: /Risk Analysis/ });
+  await pendingRiskButton.waitFor({ state: "visible" });
+  await modelRequest;
+  assert.equal(await pendingSelectionPage.evaluate(() => document.querySelector("#thinking canvas")?.parentElement?.dataset.thinkingReady === "true"), false, "test must select the concept before the model is ready");
+  await pendingRiskButton.click();
+  assert.equal(await pendingRiskButton.getAttribute("aria-pressed"), "true", "selection during model loading failed");
+  await pendingSelectionPage.waitForFunction(() => document.querySelector("#thinking canvas")?.parentElement?.dataset.thinkingReady === "true");
+  await pendingSelectionPage.waitForTimeout(450);
+  const beforeRepeatFocus = await pendingCanvas.screenshot();
+  await pendingRiskButton.click();
+  await pendingSelectionPage.waitForTimeout(450);
+  const afterRepeatFocus = await pendingCanvas.screenshot();
+  assert.equal(
+    createHash("sha256").update(beforeRepeatFocus).digest("hex"),
+    createHash("sha256").update(afterRepeatFocus).digest("hex"),
+    "selection made during model loading should already have focused its concept when ready",
+  );
+  results.push("selection made during model loading is focused when the scene becomes ready PASS");
+  await pendingSelectionContext.close();
+
   await page.emulateMedia({ reducedMotion: "reduce" });
   await nav.getByRole("button", { name: /Evidence & Validation/ }).focus();
   await page.keyboard.press("Enter");
