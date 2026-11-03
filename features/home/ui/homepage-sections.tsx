@@ -3,9 +3,10 @@ import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { aboutCvAction, aboutProfile } from "@/data/about";
 import { frameworkBlocks } from "@/data/framework";
 import { contactChannels } from "@/data/profile";
-import { decisionPrinciplesSection, problemBreakdownSection } from "@/data/thinking";
+import { problemBreakdownSection } from "@/data/thinking";
 import { QaJourney } from "./qa-journey";
 import { ProjectsShowcase } from "./projects-showcase";
+import { ThinkingNetwork } from "./thinking-network";
 
 type SectionHeadingProps = {
   eyebrow: string;
@@ -55,18 +56,7 @@ export function HomepageSections() {
               description="A practical reasoning model for ambiguity, business correctness, and evidence-driven decisions."
             />
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {decisionPrinciplesSection.items.map((principle, index) => (
-              <article key={principle.id} className="rounded-2xl border border-border/60 bg-card/60 p-7">
-                <span className="font-mono text-xs text-coral">0{index + 1}</span>
-                <h3 className="mt-5 text-xl font-semibold text-foreground">{principle.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{principle.description}</p>
-              </article>
-            ))}
-          </div>
-          <Link href="#field-guide" className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-foreground underline decoration-coral underline-offset-8 hover:text-coral">
-            Follow the reasoning path <ArrowRight aria-hidden="true" className="h-4 w-4" />
-          </Link>
+          <ThinkingNetwork />
         </div>
       </section>
 
