@@ -349,9 +349,11 @@ export function mountThinkingNetwork(
   renderer.domElement.style.cursor = "grab";
   host.appendChild(renderer.domElement);
 
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reducedMotion = media.matches;
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 0, 0);
-  controls.enableDamping = true;
+  controls.enableDamping = !reducedMotion;
   controls.dampingFactor = 0.07;
   controls.minDistance = 4.5;
   controls.maxDistance = 11;
@@ -406,8 +408,6 @@ export function mountThinkingNetwork(
     fromTarget: THREE.Vector3;
     toTarget: THREE.Vector3;
   } | null = null;
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let reducedMotion = media.matches;
   let pointerStart: { x: number; y: number } | null = null;
   let primaryPointerId: number | null = null;
   const raycaster = new THREE.Raycaster();
