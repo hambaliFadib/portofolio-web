@@ -182,7 +182,7 @@ export function ThinkingNetwork() {
               type="button"
               onClick={resetView}
               className="inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              aria-label="Reset network view and concept selection"
+              aria-label="Reset view and concept selection"
             >
               <RotateCcw aria-hidden="true" className="h-4 w-4" />
               Reset view
@@ -258,7 +258,7 @@ export function ThinkingNetwork() {
             >
               <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${conceptColorClasses[concept.color]} ${active ? "ring-4 ring-coral/15" : "opacity-70 group-hover:opacity-100"}`} />
               <span className="min-w-0">
-                <span className="block font-mono text-[0.65rem] uppercase tracking-[0.16em] opacity-70">0{index + 1}</span>
+                <span className="block font-mono text-[0.65rem] uppercase tracking-[0.16em]">0{index + 1}</span>
                 <span className="mt-1 block text-sm font-semibold leading-5">{concept.title}</span>
               </span>
             </button>

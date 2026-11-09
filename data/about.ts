@@ -1,9 +1,27 @@
 ﻿export const aboutProfile = {
   name: "Hambali Fadib",
-  summary:
-    "I approach work through clarity, structure, and long-term responsibility. My journey started from hands-on technical and operational roles, then grew into software quality work where I learned that correctness matters most when systems are under real pressure. I care about making decisions that stay right, not just look right during testing.",
-  principle:
-    "I come from hard work, and I believe consistency matters more than noise.",
+  heading: "The path behind the work.",
+  introduction: [
+    "I started with the systems behind everyday operations: handling data, supporting infrastructure, and investigating technical issues when things didn't work as expected.",
+    "Those experiences taught me that software is more than what appears on screen. They eventually led me into quality engineering, where understanding business rules, system dependencies, and real-world behavior became an essential part of my work.",
+  ],
+  journey: [
+    {
+      number: "01",
+      title: "Quality Engineering",
+      description: "Moving into QA gave me a different perspective on those systems. I began working with complex enterprise applications, validating business rules, investigating defects, and identifying risks across UI, API, and integration layers.",
+    },
+    {
+      number: "02",
+      title: "QA Engineering & Automation",
+      description: "As I encountered repetitive testing challenges, I started building automation workflows, QA utilities, and reusable testing foundations. My focus gradually expanded from executing tests to improving how testing is prepared, maintained, and validated.",
+    },
+  ],
+  education: [
+    { institution: "Asia Cyber University", qualification: "Bachelor of Information Systems", status: "In Progress" },
+    { institution: "Vocational Education", qualification: "Computer and Network Engineering (TKJ)" },
+  ],
+  personalNote: "I don't need every decision to be perfect. I need to understand the evidence, the assumptions, and the risks behind it.",
   image: {
     src: "/fotoAbout.jpg",
     alt: "Hambali Fadib",

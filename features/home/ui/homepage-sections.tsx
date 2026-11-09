@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { aboutCvAction, aboutProfile } from "@/data/about";
-import { frameworkBlocks } from "@/data/framework";
-import { contactChannels } from "@/data/profile";
-import { problemBreakdownSection } from "@/data/thinking";
+import { AsciiLens } from "./ascii-lens";
 import { QaJourney } from "./qa-journey";
 import { ProjectsShowcase } from "./projects-showcase";
 import { ThinkingNetwork } from "./thinking-network";
+import { AboutDirectionA } from "./about-direction-a";
+import { ContactFooterExperience } from "./contact-footer-experience";
 
 type SectionHeadingProps = {
   eyebrow: string;
@@ -61,126 +61,51 @@ export function HomepageSections() {
       </section>
 
       <section
-        id="framework"
-        aria-labelledby="framework-heading"
-        className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
-      >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div id="framework-heading">
-            <SectionHeading
-              eyebrow="Framework"
-              title="Four boundaries. One defensible decision."
-              description="A working structure for managing uncertainty before a system reaches release."
-            />
-          </div>
-          <div className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-2">
-            {frameworkBlocks.map((block, index) => (
-              <article key={block.title} className="bg-card p-7 sm:p-9">
-                <span className="font-mono text-sm text-coral">0{index + 1}</span>
-                <h3 className="mt-5 text-xl font-semibold text-foreground">{block.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-muted-foreground">{block.summary}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="field-guide"
-        aria-labelledby="field-guide-heading"
-        className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
-      >
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20 lg:px-8">
-          <div id="field-guide-heading">
-            <SectionHeading
-              eyebrow="Field guide"
-              title="Start with the right questions."
-              description="A compact decision guide drawn from the way I break down ambiguous system behavior."
-            />
-          </div>
-          <ol className="divide-y divide-border/70 border-t border-border/70">
-            {problemBreakdownSection.items.map((item, index) => (
-              <li key={item.id} className="grid grid-cols-[2.5rem_1fr] gap-4 py-6">
-                <span className="pt-1 font-mono text-xs text-coral">0{index + 1}</span>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-7 text-muted-foreground">{item.description}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section
         id="about"
         aria-labelledby="about-heading"
         className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
       >
-        <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-20 lg:px-8">
-          <div className="overflow-hidden rounded-3xl border border-border bg-card">
-            <img
-              src={aboutProfile.image.src}
-              alt={aboutProfile.image.alt}
-              width={680}
-              height={850}
-              loading="lazy"
-              className="aspect-[4/3] w-full object-cover lg:aspect-[4/5]"
-            />
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="grid gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-20">
+            <div className="overflow-hidden rounded-3xl border border-border bg-card">
+              <AsciiLens
+                src={aboutProfile.image.src}
+                alt={aboutProfile.image.alt}
+                width={680}
+                height={850}
+                transitionStage="idle"
+                aspectRatioClassName="aspect-[4/3] lg:aspect-[4/5]"
+                idleZoom={false}
+                className="!max-w-none !rounded-none"
+              />
+            </div>
+            <div>
+              <p className="mb-4 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-coral">About</p>
+              <h2 id="about-heading" className="font-display text-3xl font-semibold leading-tight tracking-tight text-foreground sm:text-5xl">
+                {aboutProfile.heading}
+              </h2>
+              <div className="mt-6 max-w-2xl space-y-4 text-base leading-8 text-muted-foreground sm:text-lg">
+                {aboutProfile.introduction.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+              </div>
+              <Link
+                href={aboutCvAction.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:border-coral focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                {aboutCvAction.label} <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
-          <div id="about-heading">
-            <SectionHeading eyebrow="About" title="Clarity as a working habit." description={aboutProfile.summary} />
-            <p className="border-l-2 border-coral pl-5 text-lg font-medium leading-8 text-foreground">{aboutProfile.principle}</p>
-            <Link
-              href={aboutCvAction.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-8 inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground transition-colors hover:border-coral focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              {aboutCvAction.label} <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
-            </Link>
+
+          <div className="mt-16 sm:mt-20">
+            <h3 className="font-display text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Professional Journey</h3>
+            <AboutDirectionA />
           </div>
         </div>
       </section>
 
-      <section
-        id="contact"
-        aria-labelledby="contact-heading"
-        className="scroll-mt-24 border-t border-border/60 py-20 sm:py-28"
-      >
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div id="contact-heading">
-            <SectionHeading
-              eyebrow="Contact"
-              title="Bring clarity to the next challenge."
-              description="For quality engineering, thoughtful collaboration, or a conversation about making complex systems more trustworthy."
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {contactChannels.filter((channel) => ["Email", "LinkedIn", "GitHub"].includes(channel.label)).map((channel) => (
-              <Link
-                key={channel.label}
-                href={channel.href}
-                target={channel.href.startsWith("mailto:") ? undefined : "_blank"}
-                rel={channel.href.startsWith("mailto:") ? undefined : "noopener noreferrer"}
-                className="group flex min-h-44 flex-col justify-between rounded-2xl border border-border bg-card p-7 transition-colors hover:border-coral focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-lg font-semibold text-foreground">{channel.label}</span>
-                  <ArrowUpRight aria-hidden="true" className="h-5 w-5 text-coral transition-transform group-hover:-translate-y-1 group-hover:translate-x-1" />
-                </div>
-                <span className="mt-5 text-sm leading-7 text-muted-foreground">{channel.description}</span>
-              </Link>
-            ))}
-          </div>
-          <div className="mt-16 flex flex-wrap items-center justify-between gap-5 border-t border-border/70 pt-7 text-xs text-muted-foreground">
-            <span>Quality before speed. Clarity before release.</span>
-            <Link href="#top" className="inline-flex items-center gap-2 text-foreground hover:text-coral">
-              Back to top <ArrowRight aria-hidden="true" className="h-4 w-4 -rotate-90" />
-            </Link>
-          </div>
-        </div>
-      </section>
+      <ContactFooterExperience />
     </>
   );
 }

@@ -338,6 +338,7 @@ export function mountThinkingNetwork(
   scene.add(hemisphereLight, keyLight, fillLight);
   const camera = new THREE.PerspectiveCamera(width < 600 ? 39 : 34, width / height, 0.1, 100);
   const initialPosition = new THREE.Vector3(width < 600 ? 2.6 : 3.2, width < 600 ? 1.5 : 1.9, width < 600 ? 6.1 : 5.7);
+  const initialTarget = new THREE.Vector3(0, 0, 0);
   camera.position.copy(initialPosition);
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
@@ -360,6 +361,11 @@ export function mountThinkingNetwork(
   controls.minPolarAngle = 0.28;
   controls.maxPolarAngle = Math.PI - 0.28;
   controls.screenSpacePanning = true;
+  controls.target.copy(initialTarget);
+  controls.update();
+  controls.saveState();
+  const initialQuaternion = camera.quaternion.clone();
+  const initialZoom = camera.zoom;
   controls.autoRotate = false;
 
   const getToken = (name: string, fallback: string) =>
@@ -428,6 +434,22 @@ export function mountThinkingNetwork(
   const render = () => {
     if (!disposed && inView) {
       renderer.render(scene, camera);
+      const cameraProbe = (window as Window & {
+        __thinkingCameraProbe?: (state: {
+          position: number[];
+          quaternion: number[];
+          target: number[];
+          viewMatrix: number[];
+        }) => void;
+      }).__thinkingCameraProbe;
+      if (cameraProbe) {
+        cameraProbe({
+          position: camera.position.toArray(),
+          quaternion: camera.quaternion.toArray(),
+          target: controls.target.toArray(),
+          viewMatrix: camera.matrixWorldInverse.toArray(),
+        });
+      }
       if (host.dataset.thinkingReady === "true") {
         host.dataset.thinkingDrawCalls = String(renderer.info.render.calls);
         host.dataset.thinkingRenderedTriangles = String(renderer.info.render.triangles);
@@ -902,22 +924,53 @@ export function mountThinkingNetwork(
     },
     reset() {
       setSelectedRegion(null);
-      moveCamera(new THREE.Vector3(0, 0, 0), 360);
-      if (!reducedMotion) {
-        const from = camera.position.clone();
-        cameraTween = {
-          start: performance.now(), duration: 360,
-          fromPosition: from, toPosition: initialPosition.clone(),
-          fromTarget: controls.target.clone(), toTarget: new THREE.Vector3(0, 0, 0),
-        };
-        cancelAnimationFrame(animationFrame);
-        animationFrame = requestAnimationFrame(animate);
-      } else {
-        camera.position.copy(initialPosition);
-        controls.target.set(0, 0, 0);
-        controls.update();
+      const fromPosition = camera.position.clone();
+      const fromTarget = controls.target.clone();
+      const fromQuaternion = camera.quaternion.clone();
+      const dampingEnabled = controls.enableDamping;
+
+      interactionActive = false;
+      settleUntil = 0;
+      pointerStart = null;
+      primaryPointerId = null;
+      cancelAnimationFrame(interactionFrame);
+      interactionFrame = 0;
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      cameraTween = null;
+      cameraPausedAt = 0;
+
+      controls.disconnect();
+      controls.enableDamping = false;
+      controls.reset();
+      camera.position.copy(initialPosition);
+      camera.quaternion.copy(initialQuaternion);
+      camera.zoom = initialZoom;
+      camera.updateProjectionMatrix();
+      controls.target.copy(initialTarget);
+      camera.lookAt(initialTarget);
+      controls.update();
+      controls.enableDamping = dampingEnabled;
+      controls.connect(renderer.domElement);
+      renderer.domElement.style.cursor = hoveredConceptId ? "pointer" : "grab";
+
+      if (reducedMotion) {
         render();
+        return;
       }
+
+      camera.position.copy(fromPosition);
+      camera.quaternion.copy(fromQuaternion);
+      controls.target.copy(fromTarget);
+      camera.lookAt(fromTarget);
+      controls.update();
+      cameraTween = {
+        start: performance.now(), duration: 360,
+        fromPosition: camera.position.clone(), toPosition: initialPosition.clone(),
+        fromTarget: controls.target.clone(), toTarget: initialTarget.clone(),
+      };
+      if (!inView) cameraPausedAt = performance.now();
+      animationFrame = requestAnimationFrame(animate);
     },
     select: setSelectedRegion,
     dispose,

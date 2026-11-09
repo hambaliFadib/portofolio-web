@@ -444,12 +444,190 @@
   }
 }
 
+
 @layer components {
-  .grid-bg {
-    background-image:
-      linear-gradient(to right, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px);
-    background-size: 40px 40px;
+  .contact-editorial {
+    --contact-foreground: var(--foreground);
+    --contact-secondary: var(--muted-foreground);
+    color: var(--contact-foreground);
+  }
+
+  .contact-section {
+    display: grid;
+    min-height: 38rem;
+    align-content: center;
+    padding-block: 4.5rem 5rem;
+  }
+
+  .contact-layout {
+    align-items: start;
+  }
+
+  .contact-heading {
+    max-width: 14ch;
+    color: var(--contact-foreground);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 1.04;
+  }
+
+  .contact-supporting-copy {
+    max-width: 40ch;
+    margin-top: 1.5rem;
+    color: var(--contact-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+
+  .contact-primary-list,
+  .contact-social-list {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .contact-primary-list {
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .contact-action-link {
+    display: flex;
+    min-height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    color: var(--contact-foreground);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .contact-action-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .contact-action-label,
+  .contact-secondary-heading {
+    color: var(--contact-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    transition: color 180ms ease-out;
+  }
+
+  .contact-action-value {
+    overflow-wrap: anywhere;
+    color: var(--contact-foreground);
+    font-size: clamp(1rem, 1.5vw, 1.1875rem);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .contact-action-arrow,
+  .contact-social-arrow,
+  .contact-footer-arrow {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: 0 0 auto;
+    color: inherit;
+    transition: transform 180ms ease-out;
+  }
+
+  .contact-action-link:hover .contact-action-label,
+  .contact-action-link:focus-visible .contact-action-label,
+  .contact-social-link:hover,
+  .contact-social-link:focus-visible,
+  .contact-footer-link:hover,
+  .contact-footer-link:focus-visible {
+    color: var(--contact-foreground);
+  }
+
+  .contact-action-link:hover .contact-action-arrow,
+  .contact-action-link:focus-visible .contact-action-arrow,
+  .contact-social-link:hover .contact-social-arrow,
+  .contact-social-link:focus-visible .contact-social-arrow {
+    transform: translateX(0.1875rem);
+  }
+
+  .contact-action-link:active .contact-action-arrow,
+  .contact-social-link:active .contact-social-arrow {
+    transform: translateX(0.125rem);
+  }
+
+  .contact-secondary {
+    margin-top: 3rem;
+  }
+
+  .contact-social-list {
+    flex-wrap: wrap;
+    gap: 0.875rem 1.5rem;
+    margin-top: 1.125rem;
+  }
+
+  .contact-social-link,
+  .contact-footer-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--contact-secondary);
+    cursor: pointer;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.4;
+    text-decoration: none;
+    transition: color 180ms ease-out;
+  }
+
+  .contact-social-icon {
+    width: 1.0625rem;
+    height: 1.0625rem;
+    flex: 0 0 auto;
+  }
+
+  .contact-social-link:hover,
+  .contact-social-link:focus-visible,
+  .contact-footer-link:hover,
+  .contact-footer-link:focus-visible {
+    color: var(--contact-foreground);
+  }
+
+  .contact-footer {
+    padding-block: 2rem 2.5rem;
+  }
+
+  .contact-footer-content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .contact-footer-copyright {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    color: var(--contact-secondary);
+    font-size: 0.8125rem;
+    text-align: right;
+  }
+
+  .contact-footer-link {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-self: center;
+    color: var(--contact-foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .contact-footer-link:hover .contact-footer-arrow,
+  .contact-footer-link:focus-visible .contact-footer-arrow {
+    transform: translateY(-0.1875rem);
   }
 
   .route-transition-page {
@@ -469,15 +647,6 @@
     transform: translateY(0);
   }
 
-  .skill-pill {
-    transition:
-      transform 220ms ease,
-      border-color 220ms ease,
-      background-color 220ms ease,
-      color 220ms ease,
-      box-shadow 220ms ease;
-  }
-
   @keyframes route-slide-in {
     from {
       opacity: 0;
@@ -490,15 +659,53 @@
     }
   }
 
+  @media (min-width: 640px) {
+    .contact-section {
+      padding-block: 5.5rem 6rem;
+    }
+
+    .contact-footer-content {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+
+    .contact-footer-link {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .contact-footer-copyright {
+      grid-column: 3;
+      grid-row: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .contact-editorial a,
+    .contact-editorial a * {
+      scroll-behavior: auto;
+      transition: none !important;
+    }
+
+    .contact-editorial .contact-action-arrow,
+    .contact-editorial .contact-social-arrow,
+    .contact-editorial .contact-footer-arrow {
+      transform: none !important;
+    }
+  }
+}
+
+.contact-editorial a {
+  transition-property: color, background-color, border-color, text-decoration-color;
+}
+
+.contact-editorial a:focus-visible {
+  outline: 2px solid var(--contact-foreground);
+  outline-offset: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-
-  .skill-pill {
-    transition: none;
   }
 
   .route-transition-page,
@@ -508,112 +715,4 @@
     transform: none;
     transition: none;
   }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .skill-pill:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 14px 30px -28px rgba(11, 36, 84, 0.35);
-  }
-
-  /* ─── Bright Sculptural World — material utilities ────────────
-   * Roles, not decorations:
-   *   matte  → architectural structure (platforms, frames, planes)
-   *   glossy → expressive sculptural objects (hero focal elements)
-   *   glass  → translucent resin layers and connection structures
-   * Shadows come from the --shadow-* tokens so light and dark
-   * themes share the same grounding logic.
-   */
-  .world-matte {
-    background-color: var(--surface-matte);
-    box-shadow:
-      var(--shadow-contact),
-      var(--shadow-rim);
-  }
-
-  .world-matte-raised {
-    background-color: var(--surface-matte);
-    box-shadow:
-      var(--shadow-cast-md),
-      var(--shadow-rim);
-  }
-
-  /*
-   * Glossy object: bright base with a soft top-left key highlight.
-   * Color comes from the element's own background — utility only
-   * shapes the light response.
-   */
-  .world-glossy {
-    box-shadow:
-      inset 0 2px 2px rgba(255, 255, 255, 0.5),
-      inset -6px -10px 24px rgba(17, 19, 25, 0.14),
-      var(--shadow-cast-md);
-  }
-
-  .dark .world-glossy {
-    box-shadow:
-      inset 0 1px 2px rgba(255, 255, 255, 0.14),
-      inset -6px -10px 24px rgba(0, 0, 0, 0.4),
-      var(--shadow-cast-md);
-  }
-
-  .world-glass {
-    background: var(--surface-glass);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.35),
-      var(--shadow-cast-sm);
-    backdrop-filter: blur(6px);
-  }
-
-  .dark .world-glass {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      var(--shadow-cast-sm);
-  }
-
-  /* Grounding contact shadow for sculptural objects — pure shadow, no surface */
-  .world-cast-shadow {
-    box-shadow: var(--shadow-cast-lg);
-  }
-
-  .world-contact-shadow {
-    box-shadow: var(--shadow-contact);
-  }
-
-  /* Scene background field — the world's ambient environment wash */
-  .world-scene-bg {
-    background-image: var(--page-gradient);
-  }
-
-  /*
-   * Scene shell default state. Scroll-reveal coordination: the
-   * PageMotion observer adds .scroll-reveal to <section> elements;
-   * scene shells opt out of that transform so 3D-stage scenes
-   * manage their own reveal (Phase 2+), while remaining visible
-   * immediately under reduced motion or if JS observers fail.
-   */
-  .world-scene-shell {
-    position: relative;
-    isolation: isolate;
-  }
-
-  .world-scene-shell.is-scene-revealed {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@layer utilities {
-  .font-display {
-    font-family: var(--font-display);
-  }
-
-  .text-coral {
-    color: var(--color-coral);
-  }
-}
-
-/* Dark editorial hero — override coral accent in dark mode for hero use */
-.dark {
-  --color-coral: #FA4C14;
 }

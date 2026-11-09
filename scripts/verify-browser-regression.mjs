@@ -110,13 +110,15 @@ try {
       !Array.isArray(identity.failures) || identity.failures.length) {
     throw new Error('Identity/persona evidence has missing checks, browser errors, or failures.');
   }
-  if (navigation.direct?.length !== 8 || navigation.direct.some((item) => item.pass !== true) ||
+  if (navigation.structure?.pass !== true ||
+      navigation.direct?.length !== 6 || navigation.direct.some((item) => item.pass !== true) ||
+      navigation.legacyAliases?.length !== 2 || navigation.legacyAliases.some((item) => item.pass !== true) ||
       navigation.projectsReliability?.length !== 20 || navigation.projectsReliability.some((item) => item.pass !== true) ||
       navigation.interactions?.length !== 10 || navigation.interactions.some((item) => item.pass !== true) ||
       navigation.failures?.length) {
-    throw new Error('Navigation evidence has missing, failed, or inconsistent direct-link, repeatability, or interaction checks.');
+    throw new Error('Navigation evidence has missing, failed, or inconsistent structure, direct-link, legacy-alias, repeatability, or interaction checks.');
   }
-  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation ${navigation.direct.length} direct + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
+  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation structure PASS + ${navigation.direct.length} direct + ${navigation.legacyAliases.length} legacy aliases + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
 } catch (error) {
   evidenceFailures.push(error.message);
   failed = true;

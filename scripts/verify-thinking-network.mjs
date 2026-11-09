@@ -22,6 +22,96 @@ const alignSection = async (page) => page.evaluate(() => {
   const heading = document.querySelector("#thinking-heading");
   if (heading) window.scrollTo({ top: window.scrollY + heading.getBoundingClientRect().top - 100, behavior: "instant" });
 });
+const compareCanvasImages = async (page, first, second) => page.evaluate(async ({ first, second }) => {
+  const decode = async (image) => {
+    const binary = atob(image);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return createImageBitmap(new Blob([bytes], { type: "image/png" }));
+  };
+  const [left, right] = await Promise.all([decode(first), decode(second)]);
+  if (left.width !== right.width || left.height !== right.height) {
+    left.close();
+    right.close();
+    return { meanAbsoluteError: 1, changedPixelRatio: 1 };
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = left.width;
+  canvas.height = left.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("2D canvas is required to compare stable Thinking captures.");
+  context.drawImage(left, 0, 0);
+  const leftPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(right, 0, 0);
+  const rightPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  left.close();
+  right.close();
+  let totalDifference = 0;
+  let changedPixels = 0;
+  const pixelCount = canvas.width * canvas.height;
+  for (let offset = 0; offset < leftPixels.length; offset += 4) {
+    const difference = Math.max(
+      Math.abs(leftPixels[offset] - rightPixels[offset]),
+      Math.abs(leftPixels[offset + 1] - rightPixels[offset + 1]),
+      Math.abs(leftPixels[offset + 2] - rightPixels[offset + 2]),
+    );
+    totalDifference += Math.abs(leftPixels[offset] - rightPixels[offset])
+      + Math.abs(leftPixels[offset + 1] - rightPixels[offset + 1])
+      + Math.abs(leftPixels[offset + 2] - rightPixels[offset + 2]);
+    if (difference > 12) changedPixels += 1;
+  }
+  return {
+    meanAbsoluteError: totalDifference / (pixelCount * 3 * 255),
+    changedPixelRatio: changedPixels / pixelCount,
+  };
+}, { first: first.toString("base64"), second: second.toString("base64") });
+const captureVisibleCanvas = async (page, canvas) => {
+  const before = await page.evaluate(() => {
+    const element = document.querySelector("#thinking canvas");
+    const rect = element?.getBoundingClientRect();
+    return rect && { scrollY: window.scrollY, top: rect.top, bottom: rect.bottom, height: window.innerHeight };
+  });
+  assert.ok(before && before.top >= 0 && before.bottom <= before.height,
+    `Thinking canvas must remain fully in view before capture: ${JSON.stringify(before)}`);
+  const screenshot = await canvas.screenshot({ animations: "disabled" });
+  const after = await page.evaluate(() => window.scrollY);
+  assert.equal(after, before.scrollY, "canvas capture must not auto-scroll the page");
+  return screenshot;
+};
+const waitForStableCanvas = async (page, canvas) => {
+  const deadline = Date.now() + 8000;
+  let previous = await captureVisibleCanvas(page, canvas);
+  let stableComparisons = 0;
+  let finalDifference = { meanAbsoluteError: 1, changedPixelRatio: 1 };
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(80);
+    const current = await captureVisibleCanvas(page, canvas);
+    finalDifference = await compareCanvasImages(page, previous, current);
+    if (finalDifference.meanAbsoluteError <= 0.0005 && finalDifference.changedPixelRatio <= 0.002) {
+      stableComparisons += 1;
+      if (stableComparisons >= 2) return { image: current, difference: finalDifference };
+    } else {
+      stableComparisons = 0;
+    }
+    previous = current;
+  }
+  throw new Error(`Thinking canvas did not settle before capture: ${JSON.stringify(finalDifference)}`);
+};
+const CAMERA_STATE_FIELDS = ["position", "quaternion", "target", "viewMatrix"];
+const cameraStateDeltas = (baseline, actual) => Object.fromEntries(CAMERA_STATE_FIELDS.map((field) => [
+  field,
+  Math.max(...baseline[field].map((value, index) => Math.abs(value - actual[field][index]))),
+]));
+const assertCameraStateMatchesBaseline = (baseline, actual, label, tolerance = 0.00001) => {
+  assert.ok(actual && CAMERA_STATE_FIELDS.every((field) => Array.isArray(actual[field])),
+    `${label} must expose position, quaternion, target, and view matrix`);
+  const deltas = cameraStateDeltas(baseline, actual);
+  for (const field of CAMERA_STATE_FIELDS) {
+    assert.ok(deltas[field] <= tolerance,
+      `${label} must restore camera ${field}; max absolute delta ${deltas[field]} exceeds ${tolerance}`);
+  }
+  return deltas;
+};
 
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, reducedMotion: "no-preference" });
@@ -31,6 +121,21 @@ try {
   await page.addInitScript(() => {
     window.__thinkingStartedAt = performance.now();
     window.__thinkingFrames = 0;
+    window.__thinkingModelViewMatrix = null;
+    window.__thinkingCameraState = null;
+    window.__thinkingCameraProbe = (state) => { window.__thinkingCameraState = state; };
+    const uniformNames = new WeakMap();
+    const originalGetUniformLocation = WebGL2RenderingContext.prototype.getUniformLocation;
+    const originalUniformMatrix4fv = WebGL2RenderingContext.prototype.uniformMatrix4fv;
+    WebGL2RenderingContext.prototype.getUniformLocation = function (program, name) {
+      const location = originalGetUniformLocation.call(this, program, name);
+      if (location) uniformNames.set(location, name);
+      return location;
+    };
+    WebGL2RenderingContext.prototype.uniformMatrix4fv = function (location, transpose, value) {
+      if (uniformNames.get(location) === "modelViewMatrix") window.__thinkingModelViewMatrix = Array.from(value);
+      return originalUniformMatrix4fv.call(this, location, transpose, value);
+    };
     const getContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = function (type, ...args) {
       const context = getContext.call(this, type, ...args);
@@ -99,12 +204,51 @@ try {
   const modelInitializationMs = modelMetrics.initMs;
   const nav = page.getByRole("navigation", { name: "Explore thinking concepts" });
   assert.equal(await nav.getByRole("button").count(), 5);
+  const resetView = page.getByRole("button", { name: "Reset view and concept selection", exact: true });
+  assert.equal(await resetView.count(), 1, "reset control must expose its exact accessible name and button role");
+  const initialCamera = await waitForStableCanvas(page, canvas);
+  const initialModelViewMatrix = await page.evaluate(() => window.__thinkingModelViewMatrix);
+  assert.ok(Array.isArray(initialModelViewMatrix) && initialModelViewMatrix.length === 16,
+    "initial camera modelViewMatrix must be measurable");
+  const initialCameraState = await page.evaluate(() => window.__thinkingCameraState);
+  assert.ok(initialCameraState
+    && initialCameraState.position?.length === 3
+    && initialCameraState.quaternion?.length === 4
+    && initialCameraState.target?.length === 3
+    && initialCameraState.viewMatrix?.length === 16,
+  "initial camera position, orientation, target, and view matrix must be measurable");
+  await fs.writeFile(path.join(evidenceOutput, "desktop-light-idle-canvas.png"), initialCamera.image);
   await save(page, "desktop-light-idle.png");
   await save(page, "desktop-three-quarter.png");
 
   const start = await canvas.boundingBox();
   assert.ok(start);
-  const resetView = page.getByRole("button", { name: "Reset network view and concept selection" });
+  const resetMeasurements = [];
+  const assertInitialCameraRestored = async (cause) => {
+    const restored = await waitForStableCanvas(page, canvas);
+    const difference = await compareCanvasImages(page, initialCamera.image, restored.image);
+    assert.ok(difference.meanAbsoluteError <= 0.001 && difference.changedPixelRatio <= 0.01,
+      `reset after ${cause} must restore the initial camera/orbit view: ${JSON.stringify(difference)}`);
+    const modelViewMatrix = await page.evaluate(() => window.__thinkingModelViewMatrix);
+    assert.ok(Array.isArray(modelViewMatrix) && modelViewMatrix.length === 16,
+      `reset after ${cause} must retain a measurable modelViewMatrix`);
+    const modelViewMaxAbsDifference = Math.max(...initialModelViewMatrix.map((value, index) => Math.abs(value - modelViewMatrix[index])));
+    assert.ok(modelViewMaxAbsDifference <= 0.00001,
+      `reset after ${cause} must restore initial camera pose/orientation and target: max modelViewMatrix delta ${modelViewMaxAbsDifference}`);
+    const cameraState = await page.evaluate(() => window.__thinkingCameraState);
+    const cameraDeltas = assertCameraStateMatchesBaseline(initialCameraState, cameraState, `reset after ${cause}`);
+    assert.equal(await nav.getByRole("button", { pressed: true }).count(), 0,
+      `reset after ${cause} must clear concept selection`);
+    const state = await page.evaluate(() => ({
+      selectedRegion: document.querySelector("#thinking canvas")?.parentElement?.dataset.thinkingSelectedRegion ?? null,
+      modelViewMatrix: window.__thinkingModelViewMatrix,
+      camera: window.__thinkingCameraState,
+    }));
+    assert.equal(state.selectedRegion, null, `reset after ${cause} must clear selected scene region`);
+    const measurement = { cause, screenshot: difference, modelViewMaxAbsDifference, cameraDeltas, state };
+    resetMeasurements.push(measurement);
+    return measurement;
+  };
   const rotateTo = async (degrees, name) => {
     await resetView.click();
     await page.waitForTimeout(420);
@@ -159,6 +303,138 @@ try {
 
   await resetView.click();
   await page.waitForTimeout(400);
+  const resetDifference = await assertInitialCameraRestored("orbit, pan, and zoom");
+  results.push(`Reset restored initial camera/orbit view after orbit, pan, and zoom: ${JSON.stringify(resetDifference)}; concept selection cleared PASS`);
+
+  const gestureBounds = async () => {
+    const bounds = await canvas.boundingBox();
+    assert.ok(bounds);
+    return bounds;
+  };
+  const orbitGesture = async () => {
+    const bounds = await gestureBounds();
+    await page.mouse.move(bounds.x + bounds.width * 0.38, bounds.y + bounds.height * 0.45);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * 0.66, bounds.y + bounds.height * 0.58, { steps: 8 });
+    await page.mouse.up();
+  };
+  const panGesture = async () => {
+    const bounds = await gestureBounds();
+    await page.mouse.move(bounds.x + bounds.width * 0.38, bounds.y + bounds.height * 0.45);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.move(bounds.x + bounds.width * 0.57, bounds.y + bounds.height * 0.61, { steps: 8 });
+    await page.mouse.up({ button: "right" });
+  };
+  const zoomGesture = async () => {
+    const bounds = await gestureBounds();
+    await page.mouse.move(bounds.x + bounds.width * 0.52, bounds.y + bounds.height * 0.48);
+    await page.mouse.wheel(0, -240);
+  };
+  const negativeControls = [];
+  const runCameraNegativeControl = async (name, action, requiredChangedFields, input) => {
+    await resetView.click();
+    await page.waitForTimeout(420);
+    await assertInitialCameraRestored(`baseline before negative control: ${name}`);
+    await action();
+    await page.waitForTimeout(320);
+    const perturbedState = await page.evaluate(() => window.__thinkingCameraState);
+    const deltas = cameraStateDeltas(initialCameraState, perturbedState);
+    for (const field of requiredChangedFields) {
+      assert.ok(deltas[field] > 0.00001,
+        `${name} negative control must actually perturb ${field}: ${deltas[field]}`);
+    }
+    assert.throws(
+      () => assertCameraStateMatchesBaseline(initialCameraState, perturbedState, `negative control: ${name}`),
+      /must restore camera/,
+      `${name} negative control must be rejected by strict camera-state validation`,
+    );
+    const screenshot = `negative-control-${name.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}.png`;
+    await canvas.screenshot({ path: path.join(evidenceOutput, screenshot), animations: "disabled" });
+    negativeControls.push({
+      name,
+      input,
+      expected: "strict position/quaternion/target/view-matrix check rejects this state",
+      rejected: true,
+      requiredChangedFields,
+      deltas,
+      baseline: initialCameraState,
+      perturbed: perturbedState,
+      screenshot,
+    });
+    await resetView.click();
+    await page.waitForTimeout(420);
+    const restored = await assertInitialCameraRestored(`restoration after negative control: ${name}`);
+    negativeControls.at(-1).restorationDeltas = restored.cameraDeltas;
+  };
+  await runCameraNegativeControl(
+    "camera-position-orbit",
+    orbitGesture,
+    ["position", "quaternion", "viewMatrix"],
+    "real pointer orbit gesture",
+  );
+  await runCameraNegativeControl(
+    "camera-target-pan",
+    panGesture,
+    ["position", "target", "viewMatrix"],
+    "real right-pointer pan gesture",
+  );
+  const smallResidualDrift = async () => {
+    await canvas.evaluate((element) => element.dispatchEvent(new WheelEvent("wheel", {
+      deltaY: 0.01,
+      bubbles: true,
+      cancelable: true,
+    })));
+  };
+  await runCameraNegativeControl(
+    "small-residual-drift-after-reset",
+    smallResidualDrift,
+    ["position", "viewMatrix"],
+    "cancelable WheelEvent zoom with deltaY=0.01",
+  );
+  await fs.writeFile(path.join(evidenceOutput, "camera-negative-controls.json"), `${JSON.stringify({
+    tolerance: 0.00001,
+    expectedBaseline: initialCameraState,
+    negativeControls,
+  }, null, 2)}\n`);
+  results.push(`camera-state negative controls rejected position/orbit, target/pan, and small residual drift; each reset restored baseline: ${JSON.stringify(negativeControls.map(({ name, deltas, restorationDeltas }) => ({ name, deltas, restorationDeltas })))}`);
+  const resetScenarios = [
+    { name: "orbit", actions: [orbitGesture] },
+    { name: "pan", actions: [panGesture] },
+    { name: "zoom", actions: [zoomGesture] },
+    { name: "orbit + pan", actions: [orbitGesture, panGesture] },
+    { name: "orbit + zoom", actions: [orbitGesture, zoomGesture] },
+    { name: "pan + zoom", actions: [panGesture, zoomGesture] },
+    { name: "multiple interactions", actions: [orbitGesture, panGesture, zoomGesture] },
+  ];
+  for (const scenario of resetScenarios) {
+    for (const action of scenario.actions) await action();
+    await page.waitForTimeout(260);
+    await resetView.click();
+    await page.waitForTimeout(400);
+    await assertInitialCameraRestored(scenario.name);
+  }
+  await orbitGesture();
+  await page.waitForTimeout(80);
+  await resetView.click();
+  await page.waitForTimeout(400);
+  await assertInitialCameraRestored("reset during damping");
+  for (let cycle = 1; cycle <= 10; cycle += 1) {
+    await orbitGesture();
+    await resetView.click();
+    await page.waitForTimeout(400);
+    await assertInitialCameraRestored(`consecutive reset cycle ${cycle}`);
+  }
+  await fs.writeFile(path.join(evidenceOutput, "reset-state-measurements.json"), `${JSON.stringify({
+    initialModelViewMatrix,
+    initialCameraState,
+    modelViewTolerance: 0.00001,
+    cameraStateTolerance: 0.00001,
+    existingScreenshotTolerance: { meanAbsoluteError: 0.001, changedPixelRatio: 0.01 },
+    measurements: resetMeasurements,
+    consecutiveResetCycles: 10,
+  }, null, 2)}\n`);
+  results.push(`camera reset scenarios PASS: ${resetMeasurements.length} baseline comparisons, 10 consecutive post-orbit resets; modelView tolerance 0.00001`);
+
   const findAndSelectSurfaceRegion = async () => {
     const bounds = await canvas.boundingBox();
     assert.ok(bounds);
@@ -318,7 +594,11 @@ try {
   results.push("mobile offscreen chapter selection resumes camera transition on re-entry PASS");
   await cameraResumeContext.close();
 
-  const pendingSelectionContext = await browser.newContext({ viewport: { width: 1440, height: 1200 }, reducedMotion: "no-preference" });
+  // Keep the chapter control and canvas in view together. At 1200px, the
+  // selected story can move the button below the viewport; Playwright then
+  // scrolls to click it and canvas.screenshot() scrolls back, pausing/resuming
+  // the visibility-gated camera tween between the two captures.
+  const pendingSelectionContext = await browser.newContext({ viewport: { width: 1440, height: 2000 }, reducedMotion: "no-preference" });
   const pendingSelectionPage = await pendingSelectionContext.newPage();
   pendingSelectionPage.on("pageerror", (error) => pageErrors.push(error.message));
   let modelRequestStarted;
@@ -338,20 +618,65 @@ try {
   await pendingRiskButton.click();
   assert.equal(await pendingRiskButton.getAttribute("aria-pressed"), "true", "selection during model loading failed");
   await pendingSelectionPage.waitForFunction(() => document.querySelector("#thinking canvas")?.parentElement?.dataset.thinkingReady === "true");
-  await pendingSelectionPage.waitForTimeout(450);
-  const beforeRepeatFocus = await pendingCanvas.screenshot();
+  const readPendingGeometry = () => pendingSelectionPage.evaluate(() => {
+    const canvas = document.querySelector("#thinking canvas");
+    const canvasRect = canvas?.getBoundingClientRect();
+    const button = [...document.querySelectorAll("nav button")].find((element) => element.textContent?.includes("Risk Analysis"));
+    const buttonRect = button?.getBoundingClientRect();
+    return {
+      scrollY: window.scrollY,
+      viewportHeight: window.innerHeight,
+      selected: canvas?.parentElement?.dataset.thinkingSelectedRegion,
+      canvas: canvasRect && { top: canvasRect.top, bottom: canvasRect.bottom },
+      button: buttonRect && { top: buttonRect.top, bottom: buttonRect.bottom },
+    };
+  });
+  let pendingGeometry = await readPendingGeometry();
+  const requiredViewportHeight = Math.ceil(Math.max(pendingGeometry.canvas?.bottom ?? 0, pendingGeometry.button?.bottom ?? 0) + 32);
+  if (requiredViewportHeight > pendingGeometry.viewportHeight) {
+    await pendingSelectionPage.setViewportSize({ width: 1440, height: requiredViewportHeight });
+    pendingGeometry = await readPendingGeometry();
+  }
+  assert.equal(pendingGeometry.selected, "risk", "pending Risk selection should be replayed to the ready scene");
+  assert.ok(pendingGeometry.canvas?.top >= 0 && pendingGeometry.canvas.bottom <= pendingGeometry.viewportHeight,
+    `pending-selection canvas should remain in view: ${JSON.stringify(pendingGeometry)}`);
+  assert.ok(pendingGeometry.button?.top >= 0 && pendingGeometry.button.bottom <= pendingGeometry.viewportHeight,
+    `repeat-selection control should remain in view: ${JSON.stringify(pendingGeometry)}`);
+  const beforeRepeatFocus = await waitForStableCanvas(pendingSelectionPage, pendingCanvas);
+  const scrollBeforeRepeat = await pendingSelectionPage.evaluate(() => window.scrollY);
   await pendingRiskButton.click();
-  await pendingSelectionPage.waitForTimeout(450);
-  const afterRepeatFocus = await pendingCanvas.screenshot();
-  assert.equal(
-    createHash("sha256").update(beforeRepeatFocus).digest("hex"),
-    createHash("sha256").update(afterRepeatFocus).digest("hex"),
-    "selection made during model loading should already have focused its concept when ready",
-  );
-  results.push("selection made during model loading is focused when the scene becomes ready PASS");
+  const scrollAfterRepeat = await pendingSelectionPage.evaluate(() => window.scrollY);
+  assert.equal(scrollAfterRepeat, scrollBeforeRepeat, "repeat activation must not move the canvas out of view");
+  const afterRepeatFocus = await waitForStableCanvas(pendingSelectionPage, pendingCanvas);
+  const repeatFocusDifference = await compareCanvasImages(pendingSelectionPage, beforeRepeatFocus.image, afterRepeatFocus.image);
+  assert.ok(repeatFocusDifference.meanAbsoluteError <= 0.002 && repeatFocusDifference.changedPixelRatio <= 0.01,
+    `selection during model loading must focus before repeat activation, with no repeat-click camera drift: ${JSON.stringify(repeatFocusDifference)}`);
+  results.push(`pending selection focus and repeat activation PASS (stable capture MAE ${repeatFocusDifference.meanAbsoluteError.toFixed(6)}, changed pixels ${(repeatFocusDifference.changedPixelRatio * 100).toFixed(3)}%)`);
   await pendingSelectionContext.close();
 
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await orbitGesture();
+  await resetView.click();
+  const reducedMotionReset = async () => page.evaluate(() => window.__thinkingModelViewMatrix);
+  const reducedMotionResetMatrix = await reducedMotionReset();
+  const reducedMotionResetDelta = Math.max(...initialModelViewMatrix.map((value, index) => Math.abs(value - reducedMotionResetMatrix[index])));
+  assert.ok(reducedMotionResetDelta <= 0.00001,
+    `reduced-motion reset must restore the initial camera immediately: max modelViewMatrix delta ${reducedMotionResetDelta}`);
+  await page.waitForTimeout(160);
+  const reducedMotionSettledMatrix = await reducedMotionReset();
+  const reducedMotionSettledDelta = Math.max(...initialModelViewMatrix.map((value, index) => Math.abs(value - reducedMotionSettledMatrix[index])));
+  assert.ok(reducedMotionSettledDelta <= 0.00001,
+    `reduced-motion reset must not continue a camera tween: max modelViewMatrix delta ${reducedMotionSettledDelta}`);
+  assert.equal(await nav.getByRole("button", { pressed: true }).count(), 0,
+    "reduced-motion reset must clear concept selection");
+  const reducedMotionCameraState = await page.evaluate(() => window.__thinkingCameraState);
+  const reducedMotionCameraDeltas = assertCameraStateMatchesBaseline(
+    initialCameraState,
+    reducedMotionCameraState,
+    "reduced-motion reset",
+  );
+  results.push(`reduced-motion reset is immediate and stable PASS (initial delta ${reducedMotionResetDelta}, after 160ms ${reducedMotionSettledDelta})`);
+  results.push(`reduced-motion camera position, orientation, target, and matrix PASS ${JSON.stringify(reducedMotionCameraDeltas)}`);
   await nav.getByRole("button", { name: /Evidence & Validation/ }).focus();
   await page.keyboard.press("Enter");
   assert.equal(await nav.getByRole("button", { name: /Evidence & Validation/ }).getAttribute("aria-pressed"), "true");
