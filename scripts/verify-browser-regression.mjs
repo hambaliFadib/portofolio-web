@@ -106,8 +106,11 @@ try {
   const identity = JSON.parse(await fs.readFile(path.join(identityOutput, 'results.json'), 'utf8'));
   const navigation = JSON.parse(await fs.readFile(path.join(navigationOutput, 'navigation-reliability.json'), 'utf8'));
 
+  if (!Array.isArray(about.results)) {
+    throw new Error('About career history regression evidence is missing or malformed.');
+  }
   const scrollspy = about.results.find((item) => item.check === 'scrollspy follows scroll while IntersectionObserver notifications remain unchanged');
-  if (!Array.isArray(about.results) || about.results.length !== 13 ||
+  if (about.results.length !== 13 ||
       about.results.some((item) => item.passed !== true) ||
       !scrollspy || scrollspy.from !== 0 || scrollspy.to !== 1 ||
       scrollspy.activeMilestone !== 'about-stage-02' ||
@@ -136,7 +139,7 @@ try {
       navigation.failures?.length) {
     throw new Error('Navigation evidence has missing, failed, or inconsistent structure, direct-link, legacy-alias, repeatability, or interaction checks.');
   }
-  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, About ${about.results.length}/12, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation structure PASS + ${navigation.direct.length} direct + ${navigation.legacyAliases.length} legacy aliases + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
+  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, About ${about.results.length}/13, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation structure PASS + ${navigation.direct.length} direct + ${navigation.legacyAliases.length} legacy aliases + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
 } catch (error) {
   evidenceFailures.push(error.message);
   failed = true;
