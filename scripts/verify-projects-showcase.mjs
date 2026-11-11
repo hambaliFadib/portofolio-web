@@ -52,9 +52,11 @@ try {
         await popup.waitForLoadState("domcontentloaded");
         assert.equal(popup.url(), contract.href, `${contract.id} action must open its expected GitHub repository`);
         await popup.close();
+        // Clicking the repository link can scroll the page. Hover the image itself
+        // so Playwright restores its visibility before dispatching pointer events.
+        await img.hover();
         const bounds = await img.boundingBox();
         assert.ok(bounds && bounds.width > 0 && bounds.height > 0);
-        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
         await article.locator("[data-ascii-lens] canvas").waitFor({ state: "visible", timeout: 5000 });
         assert.ok(await article.locator("[data-ascii-lens] canvas").evaluate((canvas) => canvas instanceof HTMLCanvasElement && canvas.width > 0), "magnified ASCII lens must render");
         await page.mouse.move(2, 2);
