@@ -100,64 +100,75 @@ export function Header() {
 
   const observerReportedSectionRef = useRef(false);
   // ── Scroll-spy ─────────────────────────────────────────────
-  // IntersectionObserver over the detection band. When adjacent
-  // sections both touch the band (tall sections overlap it), the
-  // section whose center is nearest the viewport center wins —
-  // deterministic, matches the reading position, no flicker.
+  // Recalculate current section geometry on scroll. IntersectionObserver
+  // alone is insufficient for tall sections: their intersection can remain
+  // true while their center moves across the viewport, leaving stale distances.
+  // The observer remains as a layout-change signal; scroll sampling keeps the
+  // active destination synchronized throughout long sections.
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") {
-      return;
-    }
-
     let disposed = false;
+    let frame: number | null = null;
     observerReportedSectionRef.current = false;
-    const intersecting = new Map<string, number>();
-    const bandCenter = () => window.innerHeight / 2;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (disposed) return;
-        for (const entry of entries) {
-          const owner = SECTION_TO_NAV[entry.target.id];
-          if (!owner) {
-            continue;
-          }
-          if (!entry.isIntersecting) {
-            intersecting.delete(owner);
-            continue;
-          }
-          const rect = entry.boundingClientRect;
-          const center = rect.top + rect.height / 2;
-          intersecting.set(owner, Math.abs(center - bandCenter()));
-        }
+    const updateActiveSection = () => {
+      frame = null;
+      if (disposed) return;
 
-        let bestId: string | null = null;
-        let bestDistance = Number.POSITIVE_INFINITY;
-        for (const [id, distance] of intersecting) {
-          if (distance < bestDistance) {
-            bestId = id;
-            bestDistance = distance;
-          }
-        }
-        if (bestId) {
-          observerReportedSectionRef.current = true;
-          setActiveSection(bestId as NavId | "contact");
-        }
-      },
-      { rootMargin: SPY_ROOT_MARGIN, threshold: 0 },
-    );
+      const bandTop = window.innerHeight * 0.2;
+      const bandBottom = window.innerHeight * 0.7;
+      const bandCenter = window.innerHeight / 2;
+      let bestOwner: NavId | "contact" | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
 
-    const targets = SPY_SECTION_IDS;
-    for (const id of targets) {
-      const section = document.getElementById(id);
-      if (section) {
-        observer.observe(section);
+      for (const id of SPY_SECTION_IDS) {
+        const section = document.getElementById(id);
+        const owner = SECTION_TO_NAV[id];
+        if (!section || !owner) continue;
+
+        const rect = section.getBoundingClientRect();
+        if (rect.bottom <= bandTop || rect.top >= bandBottom) continue;
+
+        const sectionCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(sectionCenter - bandCenter);
+        if (distance < bestDistance) {
+          bestOwner = owner;
+          bestDistance = distance;
+        }
       }
+
+      if (bestOwner) {
+        observerReportedSectionRef.current = true;
+        setActiveSection(bestOwner);
+      }
+    };
+
+    const scheduleUpdate = () => {
+      if (disposed || frame !== null) return;
+      frame = window.requestAnimationFrame(updateActiveSection);
+    };
+
+    const observer = typeof IntersectionObserver === "undefined"
+      ? null
+      : new IntersectionObserver(scheduleUpdate, {
+          rootMargin: SPY_ROOT_MARGIN,
+          threshold: 0,
+        });
+
+    for (const id of SPY_SECTION_IDS) {
+      const section = document.getElementById(id);
+      if (section) observer?.observe(section);
     }
+
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    scheduleUpdate();
 
     return () => {
       disposed = true;
-      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
     };
   }, [persona]);
 

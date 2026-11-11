@@ -47,6 +47,28 @@ async function waitForPersonaSettled(page, persona, timeout = 5000) {
   }, persona, { timeout });
 }
 
+async function waitForActiveNavigation(page, href, context) {
+  try {
+    await page.waitForFunction((expected) => (
+      document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === expected
+    ), href, { timeout: 10000 });
+  } catch (error) {
+    const state = await page.evaluate((expected) => {
+      const target = document.querySelector(expected);
+      const rect = target?.getBoundingClientRect();
+      return {
+        hash: location.hash,
+        scrollY: window.scrollY,
+        activeHref: document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") ?? null,
+        target: rect ? { top: rect.top, bottom: rect.bottom, height: rect.height } : null,
+        viewportHeight: window.innerHeight,
+        documentHeight: document.documentElement.scrollHeight,
+      };
+    }, href);
+    throw new Error(`Scrollspy did not activate ${href} during ${context}: ${JSON.stringify(state)}; ${error.message}`);
+  }
+}
+
 async function waitForMobileMenuExit(page) {
   await page.waitForFunction(() => {
     const menu = document.querySelector("#primary-mobile-menu");
@@ -538,10 +560,10 @@ try {
   observe(spy, "Persona scroll spy");
   await spy.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
   const activeNav = () => spy.locator('nav[aria-label="Primary"] a[aria-current="true"]');
-  await spy.waitForFunction(() => document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === "#projects");
+  await waitForActiveNavigation(spy, "#projects", "initial direct hash");
   results.interactions.push("Direct #projects hash initializes active navigation");
   await spy.locator("#projects").scrollIntoViewIfNeeded();
-  await spy.waitForFunction(() => document.querySelector('nav[aria-label="Primary"] a[aria-current="true"]')?.getAttribute("href") === "#projects");
+  await waitForActiveNavigation(spy, "#projects", "scroll to Projects");
   if (await personaSwitchButton(spy, "qa").count() !== 1) failures.push("QA persona must expose its exact full accessible switch name");
   await personaSwitchButton(spy, "qa").click();
   await waitForPersonaSettled(spy, "fullstack");
@@ -551,7 +573,7 @@ try {
   for (const section of ["projects", "thinking", "about", "contact", "projects", "thinking", "about", "contact"]) {
     await spy.locator(`#${section}`).scrollIntoViewIfNeeded();
     const href = section === "contact" ? "#contact" : `#${section}`;
-    await spy.waitForFunction((expected) => document.querySelector(`nav[aria-label="Primary"] a[href="${expected}"][aria-current="true"]`) !== null, href);
+    await waitForActiveNavigation(spy, href, `persona round-trip section ${section}`);
   }
   if (await activeNav().count() !== 1) failures.push("Scroll spy did not retain a single active navigation item after persona round trips");
   results.interactions.push("Scroll spy reconnects after repeated persona round trips");
