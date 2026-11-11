@@ -10,8 +10,9 @@ const expectedCopy = [
   "The path behind the work.",
   "I started with the systems behind everyday operations: handling data, supporting infrastructure, and investigating technical issues when things didn't work as expected.",
   "Those experiences taught me that software is more than what appears on screen. They eventually led me into quality engineering, where understanding business rules, system dependencies, and real-world behavior became an essential part of my work.",
-  "Moving into QA gave me a different perspective on those systems. I began working with complex enterprise applications, validating business rules, investigating defects, and identifying risks across UI, API, and integration layers.",
-  "As I encountered repetitive testing challenges, I started building automation workflows, QA utilities, and reusable testing foundations. My focus gradually expanded from executing tests to improving how testing is prepared, maintained, and validated.",
+  "I began in manufacturing data operations, checking production records against physical inventory and supporting warehouse workflows. Data accuracy had visible consequences for daily operations.",
+  "I then worked with storage and network infrastructure, monitoring system health, investigating logs, and supporting data integrity. Troubleshooting taught me to look beyond the application interface.",
+  "I moved into testing complex software across business rules, UI, API, and integrations. Repetitive work led me to build reusable automation workflows, while evidence, quality gates, and explicit risks remained central to release decisions.",
   "Asia Cyber University",
   "Bachelor of Information Systems",
   "In Progress",
@@ -36,16 +37,23 @@ try {
       await heading.waitFor({ state: "visible" });
       for (const text of expectedCopy) assert.equal(await about.getByText(text, { exact: true }).count(), 1, `approved About copy missing at ${width}px/${theme}: ${text}`);
       const chapterNavigation = about.getByRole("navigation", { name: "Professional Journey chapters" });
-      assert.equal(await chapterNavigation.getByRole("button").count(), 2, "Professional Journey must expose exactly two chapter controls");
+      assert.equal(await chapterNavigation.getByRole("button").count(), 3, "Professional Journey must expose exactly three career chapter controls");
       const timeline = about.locator("[data-about-timeline]");
-      assert.equal(await timeline.locator(":scope > li[data-about-milestone]").count(), 5, "timeline must contain five milestones");
-      assert.equal(await timeline.locator(":scope > li[id^=about-stage-]").count(), 2, "Professional Journey must contain exactly two experience stages");
+      assert.equal(await timeline.locator(":scope > li[data-about-milestone]").count(), 6, "timeline must contain three jobs, two education entries, and one personal note");
+      assert.equal(await timeline.locator(":scope > li[id^=about-stage-]").count(), 3, "Professional Journey must contain exactly three career milestones");
       assert.equal(await timeline.locator(":scope > li[id^=about-education-]").count(), 2, "Education must contain exactly two records");
       assert.equal(await timeline.locator(":scope > li#about-personal-note").count(), 1, "Personal Note must remain the conclusion");
-      for (const stage of ["01 — Quality Engineering", "02 — QA Engineering & Automation"]) {
-        assert.equal(await about.getByRole("heading", { level: 4, name: stage }).count(), 1, `journey stage label must match exactly: ${stage}`);
+      for (const [index, [id, stage, company]] of [
+        ["papyrus-internship", "01 — Electronic Data Processing Staff", "PT. Papyrus Sakti · Internship"],
+        ["technical-support-specialist", "02 — Technical Support Specialist", "PT. Neuronworks Indonesia"],
+        ["neuronworks-qa-engineer", "03 — Software Quality Assurance Engineer", "PT. Neuronworks Indonesia"],
+      ].entries()) {
+        assert.equal(await about.getByRole("heading", { level: 4, name: stage }).count(), 1, `career stage must match: ${stage}`);
+        const milestone = timeline.locator(":scope > li[data-experience-id]").nth(index);
+        assert.equal(await milestone.getAttribute("data-experience-id"), id, `career order must match ${id}`);
+        assert.ok((await milestone.innerText()).includes(company), `career company must match ${id}`);
       }
-      assert.equal(await about.getByRole("heading", { level: 4, name: /Technical Foundation/ }).count(), 0, "Technical Foundation must not remain as a standalone chapter");
+      assert.equal(await chapterNavigation.getByRole("button", { name: /QA Engineering & Automation/ }).count(), 0, "automation must not replace a career milestone");
       assert.equal(await about.getByRole("link", { name: "View CV" }).getAttribute("href"), "/Hambali_Fadib_CV_QA_2026.pdf");
       assert.equal(await page.locator("html").getAttribute("data-appearance"), theme);
 

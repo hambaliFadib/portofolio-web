@@ -6,7 +6,7 @@ import { AboutStickyCanvas } from "./about-sticky-canvas";
 import { useReducedMotionPreference } from "@/components/motion/use-reduced-motion";
 import { aboutProfile } from "@/data/about";
 
-const stageIds = ["about-stage-01", "about-stage-02"];
+const stageId = (index: number) => `about-stage-${String(index + 1).padStart(2, "0")}`;
 const milestoneCount = aboutProfile.journey.length + aboutProfile.education.length + 1;
 
 export function AboutDirectionA() {
@@ -80,7 +80,7 @@ export function AboutDirectionA() {
               <button
                 type="button"
                 aria-current={activeIndex === index ? "step" : undefined}
-                aria-controls={stageIds[index]}
+                aria-controls={stageId(index)}
                 onClick={() => {
                   const target = milestonesRef.current[index];
                   if (!target) return;
@@ -91,7 +91,7 @@ export function AboutDirectionA() {
                 className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none ${activeIndex === index ? "bg-card font-semibold text-foreground" : "text-muted-foreground hover:bg-card/60 hover:text-foreground"}`}
               >
                 <span className={`font-mono text-xs tabular-nums ${activeIndex === index ? "text-coral" : "text-muted-foreground"}`}>{stage.number}</span>
-                <span>{stage.title}</span>
+                <span>{stage.navTitle}</span>
               </button>
             </li>
           ))}
@@ -99,10 +99,10 @@ export function AboutDirectionA() {
       </nav>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        Current journey point: {activeIndex < 2
+        Current journey point: {activeIndex < aboutProfile.journey.length
           ? aboutProfile.journey[activeIndex]?.title
-          : activeIndex < 4
-            ? aboutProfile.education[activeIndex - 2]?.institution
+          : activeIndex < aboutProfile.journey.length + aboutProfile.education.length
+            ? aboutProfile.education[activeIndex - aboutProfile.journey.length]?.institution
             : "Personal Note"}
       </p>
 
@@ -124,9 +124,10 @@ export function AboutDirectionA() {
         {aboutProfile.journey.map((stage, index) => (
           <li
             key={stage.number}
-            id={stageIds[index]}
+            id={stageId(index)}
             ref={(node) => { milestonesRef.current[index] = node; }}
             data-about-milestone
+            data-experience-id={stage.id}
             data-active={activeIndex === index}
             className="relative pb-9 last:pb-0 sm:pb-11"
           >
@@ -143,6 +144,7 @@ export function AboutDirectionA() {
               <h4 className={`font-display text-xl leading-tight transition-colors duration-200 motion-reduce:transition-none sm:text-2xl ${activeIndex === index ? "font-semibold text-foreground" : "font-medium text-foreground/80"}`}>
                 {stage.number} — {stage.title}
               </h4>
+              <p className="mt-2 text-sm font-medium text-foreground/80">{stage.company}</p>
               <p className="mt-3 max-w-[68ch] text-sm leading-7 text-muted-foreground sm:text-base">
                 {stage.description}
               </p>
@@ -202,6 +204,8 @@ export function AboutDirectionA() {
           activeIndex={activeIndex}
           scrollProgress={reduceMotion ? discreteProgress : scrollFill}
           reduceMotion={reduceMotion}
+          experienceCount={aboutProfile.journey.length}
+          totalMilestones={milestoneCount}
         />
       </div>
     </div>

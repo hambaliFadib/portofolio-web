@@ -2,52 +2,22 @@
 
 import { AnimatePresence, motion, type MotionValue } from "motion/react";
 
-type CanvasNode = {
-  label: string;
-  x: number;
-  y: number;
-  width?: number;
-};
-
+type CanvasNode = { label: string; x: number; y: number; width?: number };
 type CanvasScene = {
-  key: string;
-  title: string;
-  caption: string;
-  center: string;
-  nodes: CanvasNode[];
-  connections: string[];
-  description: string;
+  key: string; title: string; caption: string; center: string;
+  nodes: CanvasNode[]; connections: string[]; description: string;
 };
 
 const scenes: CanvasScene[] = [
   {
-    key: "quality-engineering",
-    title: "Verification relationships",
-    caption: "Rules, application layers, and integrations are considered together.",
-    center: "VALIDATION",
+    key: "data-processing",
+    title: "Operational accuracy",
+    caption: "Records, inventory, and warehouse operations must agree.",
+    center: "ACCURACY",
     nodes: [
-      { label: "BUSINESS RULES", x: 42, y: 108 },
-      { label: "UI / API", x: 42, y: 298 },
-      { label: "INTEGRATION", x: 446, y: 108 },
-      { label: "RISK", x: 446, y: 298 },
-    ],
-    connections: [
-      "M 192 136 C 230 136 244 189 267 211",
-      "M 192 326 C 230 326 244 273 267 251",
-      "M 373 211 C 398 189 410 136 446 136",
-      "M 373 251 C 398 273 410 326 446 326",
-    ],
-    description: "A conceptual view of business rules, UI and API layers, integrations, and risk meeting in validation.",
-  },
-  {
-    key: "qa-automation",
-    title: "Repeatable practice",
-    caption: "Workflows and reusable QA foundations reinforce one another.",
-    center: "REPEATABLE",
-    nodes: [
-      { label: "WORKFLOWS", x: 42, y: 108 },
-      { label: "QA UTILITIES", x: 42, y: 298 },
-      { label: "REUSABLE", x: 446, y: 108 },
+      { label: "PRODUCTION DATA", x: 42, y: 108 },
+      { label: "INVENTORY", x: 42, y: 298 },
+      { label: "WAREHOUSE", x: 446, y: 108 },
       { label: "VALIDATION", x: 446, y: 298 },
     ],
     connections: [
@@ -55,9 +25,46 @@ const scenes: CanvasScene[] = [
       "M 192 326 C 230 326 244 273 267 251",
       "M 373 211 C 398 189 410 136 446 136",
       "M 373 251 C 398 273 410 326 446 326",
-      "M 520 162 C 584 194 584 266 520 298",
     ],
-    description: "A conceptual loop linking workflows and QA utilities with reusable foundations and validation.",
+    description: "Production data, physical inventory, warehouse operations, and validation converge on accuracy.",
+  },
+  {
+    key: "technical-support",
+    title: "Systems beneath the interface",
+    caption: "Infrastructure health and logs reveal reliability risks.",
+    center: "RELIABILITY",
+    nodes: [
+      { label: "STORAGE", x: 42, y: 108 },
+      { label: "MONITORING", x: 42, y: 298 },
+      { label: "NETWORK", x: 446, y: 108 },
+      { label: "LOG ANALYSIS", x: 446, y: 298 },
+    ],
+    connections: [
+      "M 192 136 C 230 136 244 189 267 211",
+      "M 192 326 C 230 326 244 273 267 251",
+      "M 373 211 C 398 189 410 136 446 136",
+      "M 373 251 C 398 273 410 326 446 326",
+    ],
+    description: "Storage, system monitoring, networking, and log analysis contribute to operational reliability.",
+  },
+  {
+    key: "quality-assurance",
+    title: "Evidence before release",
+    caption: "Business rules, integration, automation, and risk converge at the quality gate.",
+    center: "QUALITY GATE",
+    nodes: [
+      { label: "BUSINESS RULES", x: 42, y: 108 },
+      { label: "UI / API", x: 42, y: 298 },
+      { label: "INTEGRATION", x: 446, y: 108 },
+      { label: "AUTOMATION", x: 446, y: 298 },
+    ],
+    connections: [
+      "M 192 136 C 230 136 244 189 267 211",
+      "M 192 326 C 230 326 244 273 267 251",
+      "M 373 211 C 398 189 410 136 446 136",
+      "M 373 251 C 398 273 410 326 446 326",
+    ],
+    description: "Quality assurance combines business rules, interface and API checks, integration, and automation under an evidence-based release gate.",
   },
   {
     key: "education",
@@ -97,10 +104,14 @@ type AboutStickyCanvasProps = {
   activeIndex: number;
   scrollProgress: MotionValue<number> | number;
   reduceMotion: boolean;
+  experienceCount: number;
+  totalMilestones: number;
 };
 
-export function AboutStickyCanvas({ activeIndex, scrollProgress, reduceMotion }: AboutStickyCanvasProps) {
-  const sceneIndex = activeIndex < 2 ? activeIndex : activeIndex < 4 ? 2 : 3;
+export function AboutStickyCanvas({ activeIndex, scrollProgress, reduceMotion, experienceCount, totalMilestones }: AboutStickyCanvasProps) {
+  const sceneIndex = activeIndex < experienceCount
+    ? activeIndex
+    : activeIndex < totalMilestones - 1 ? experienceCount : experienceCount + 1;
   const scene = scenes[sceneIndex] ?? scenes[0];
   const transition = reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
 
@@ -118,7 +129,7 @@ export function AboutStickyCanvas({ activeIndex, scrollProgress, reduceMotion }:
               </p>
             </div>
             <span aria-hidden="true" className="shrink-0 pb-1 font-mono text-xs tabular-nums text-muted-foreground">
-              {String(activeIndex + 1).padStart(2, "0")} / 05
+              {String(activeIndex + 1).padStart(2, "0")} / {String(totalMilestones).padStart(2, "0")}
             </span>
           </figcaption>
 

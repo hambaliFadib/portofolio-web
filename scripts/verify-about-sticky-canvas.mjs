@@ -8,8 +8,9 @@ const baselineOrigin = process.env.PORTFOLIO_STICKY_BASELINE_URL || "http://127.
 const previewOrigin = process.env.PORTFOLIO_PREVIEW_URL || "http://127.0.0.1:3009";
 const output = process.env.PORTFOLIO_STICKY_CANVAS_OUTPUT_DIR || path.join(os.tmpdir(), "portfolio-about-sticky-canvas-evidence");
 const stateKeys = [
-  "quality-engineering",
-  "qa-automation",
+  "data-processing",
+  "technical-support",
+  "quality-assurance",
   "education",
   "education",
   "personal-note",
@@ -75,7 +76,7 @@ async function responsiveMatrix() {
       }));
       assert.equal(metrics.appearance, theme, `theme query was not applied at ${width}px/${theme}`);
       assert.ok(metrics.documentWidth <= metrics.viewportWidth, `horizontal overflow at ${width}px/${theme}: ${JSON.stringify(metrics)}`);
-      assert.equal(metrics.milestoneCount, 5, `timeline content changed at ${width}px/${theme}`);
+      assert.equal(metrics.milestoneCount, 6, `timeline content changed at ${width}px/${theme}`);
       assert.equal(metrics.canvasDisplay !== "none", width >= 1280, `canvas breakpoint mismatch at ${width}px/${theme}`);
 
       if ((width === 1440 || width === 390)) {
@@ -96,7 +97,7 @@ async function stateAndBoundaryChecks() {
   const timeline = page.locator("#about [data-about-timeline]");
   const canvas = page.locator("#about [data-about-canvas]");
   const nav = page.getByRole("navigation", { name: "Professional Journey chapters" });
-  assert.equal(await nav.getByRole("button").count(), 2, "chapter navigation must keep two keyboard controls");
+  assert.equal(await nav.getByRole("button").count(), 3, "chapter navigation must provide three career controls");
   assert.equal(await canvas.getAttribute("data-about-canvas-state"), stateKeys[0], "initial milestone canvas mismatch");
 
   for (let index = 0; index < stateKeys.length; index += 1) {
@@ -142,14 +143,14 @@ async function stateAndBoundaryChecks() {
   assert.equal(await canvas.getAttribute("data-about-canvas-state"), stateKeys[0], "reverse scrolling must restore the first state");
   await page.evaluate(() => window.scrollTo({ top: document.querySelector("#about-personal-note").getBoundingClientRect().top + scrollY - innerHeight * 0.3, behavior: "instant" }));
   await page.waitForTimeout(340);
-  assert.equal(await canvas.getAttribute("data-about-canvas-state"), stateKeys[4], "fast scroll must settle on the current final state");
+  assert.equal(await canvas.getAttribute("data-about-canvas-state"), stateKeys.at(-1), "fast scroll must settle on the current final state");
   record("scroll reversal and fast-scroll synchronization");
 
-  const finalChapter = nav.getByRole("button", { name: /QA Engineering & Automation/ });
+  const finalChapter = nav.getByRole("button", { name: /Quality Assurance/ });
   await finalChapter.press("Enter");
   await page.waitForTimeout(1200);
-  assert.equal(await page.locator("#about-stage-02").getAttribute("data-active"), "true", "keyboard activation must navigate to its milestone");
-  assert.equal(await canvas.getAttribute("data-about-canvas-state"), "qa-automation", "keyboard chapter activation must update the canvas");
+  assert.equal(await page.locator("#about-stage-03").getAttribute("data-active"), "true", "keyboard activation must navigate to its milestone");
+  assert.equal(await canvas.getAttribute("data-about-canvas-state"), "quality-assurance", "keyboard chapter activation must update the canvas");
   record("keyboard chapter activation");
   await page.close();
 }
@@ -160,7 +161,7 @@ async function touchAndReducedMotionChecks() {
   observe(touchPage, "mobile-touch");
   await touchPage.goto(`${previewOrigin}/?persona=qa&theme=light#about`, { waitUntil: "networkidle" });
   await touchPage.locator("#about [data-about-timeline]").waitFor({ state: "visible" });
-  const chapterButton = touchPage.getByRole("navigation", { name: "Professional Journey chapters" }).getByRole("button", { name: /Quality Engineering$/ });
+  const chapterButton = touchPage.getByRole("navigation", { name: "Professional Journey chapters" }).getByRole("button", { name: /Data Processing$/ });
   await chapterButton.scrollIntoViewIfNeeded();
   const buttonBox = await chapterButton.boundingBox();
   assert.ok(buttonBox && buttonBox.height >= 44, `touch target must be at least 44px high: ${JSON.stringify(buttonBox)}`);

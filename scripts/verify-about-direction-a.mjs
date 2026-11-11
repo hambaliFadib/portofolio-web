@@ -6,7 +6,7 @@ import { chromium } from "playwright";
 
 const origin = process.env.PORTFOLIO_PREVIEW_URL || "http://127.0.0.1:3009";
 const output = process.env.PORTFOLIO_ABOUT_OUTPUT_DIR || path.join(os.tmpdir(), "portfolio-about-journey-evidence");
-const names = ["Quality Engineering", "QA Engineering & Automation"];
+const names = ["Data Processing", "Technical Support", "Quality Assurance"];
 const errors = [];
 const browser = await chromium.launch({ headless: true });
 await fs.mkdir(output, { recursive: true });
@@ -30,8 +30,8 @@ try {
       assert.ok(horizontalLayout.journeyWidth <= width, `journey wider than viewport ${width}px/${theme}`);
       const nav = about.getByRole("navigation", { name: "Professional Journey chapters" });
       const controls = nav.getByRole("button");
-      assert.equal(await controls.count(), 2);
-      assert.equal(await about.locator("[data-about-timeline] > li[data-about-milestone]").count(), 5);
+      assert.equal(await controls.count(), 3);
+      assert.equal(await about.locator("[data-about-timeline] > li[data-about-milestone]").count(), 6);
       for (let index = 0; index < names.length; index += 1) {
         const control = controls.nth(index);
         const box = await control.boundingBox();
@@ -47,6 +47,11 @@ try {
         await page.waitForFunction((id) => document.querySelector('#about nav[aria-label="Professional Journey chapters"] [aria-current="step"]')?.getAttribute("aria-controls") === id, expectedId);
         await page.waitForTimeout(250);
         assert.equal(await nav.locator('[aria-current="step"]').getAttribute("aria-controls"), expectedId, `scrollspy state must remain stable ${width}px/${theme}/${expectedId}`);
+      }
+      const jobIds = ["papyrus-internship", "technical-support-specialist", "neuronworks-qa-engineer"];
+      for (const [index, id] of jobIds.entries()) {
+        assert.equal(await about.locator(`[data-about-timeline] > li[data-experience-id="${id}"]`).count(), 1, `missing experience ${id} at ${width}px/${theme}`);
+        assert.equal(await about.locator("[data-about-timeline] > li[data-experience-id]").nth(index).getAttribute("data-experience-id"), id, `experience order changed at ${width}px/${theme}`);
       }
       assert.equal(await about.getByRole("heading", { name: "Education" }).count(), 1);
       assert.equal(await about.getByRole("heading", { name: "Personal Note" }).count(), 1);
@@ -80,7 +85,7 @@ try {
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
         const nav = page.getByRole("navigation", { name: "Professional Journey chapters" });
-        const finalChapter = nav.getByRole("button").nth(1);
+        const finalChapter = nav.getByRole("button").nth(2);
         await finalChapter.focus();
         assert.notEqual(
           await finalChapter.evaluate((el) => getComputedStyle(el).outlineStyle),
@@ -121,7 +126,7 @@ try {
 
         await page.keyboard.press("Enter");
         await page.waitForFunction(
-          () => document.querySelector('#about nav[aria-label="Professional Journey chapters"] [aria-current="step"]')?.getAttribute("aria-controls") === "about-stage-02",
+          () => document.querySelector('#about nav[aria-label="Professional Journey chapters"] [aria-current="step"]')?.getAttribute("aria-controls") === "about-stage-03",
           null,
           { timeout: 7000 },
         );
@@ -148,8 +153,8 @@ try {
           activeMilestone: [...document.querySelectorAll("#about [data-about-milestone]")].find((item) => item.dataset.active === "true")?.id,
           focusVisible: document.activeElement.matches(":focus-visible"),
         }));
-        assert.equal(after.activeControl, "about-stage-02", `chapter activation failed ${label}`);
-        assert.equal(after.activeMilestone, "about-stage-02", `milestone activation failed ${label}`);
+        assert.equal(after.activeControl, "about-stage-03", `chapter activation failed ${label}`);
+        assert.equal(after.activeMilestone, "about-stage-03", `milestone activation failed ${label}`);
         assert.equal(after.focusVisible, true, `keyboard focus must remain visible after navigation ${label}`);
         assert.equal(after.calls.length, 1, `expected one chapter window.scrollTo call ${label}: ${JSON.stringify(after.calls)}`);
         assert.equal(after.calls[0].api, "window.scrollTo");
@@ -186,7 +191,7 @@ try {
   } finally {
     await motionBrowser.close();
   }
-  console.log(JSON.stringify({ status: "PASS", viewportThemePairs: 10, stages: 2, motionThemePairs: 4, keyboard: "PASS", reducedMotion: "PASS", normalMotion: "PASS", pageErrors: errors, screenshots: output }, null, 2));
+  console.log(JSON.stringify({ status: "PASS", viewportThemePairs: 10, stages: 3, motionThemePairs: 4, keyboard: "PASS", reducedMotion: "PASS", normalMotion: "PASS", pageErrors: errors, screenshots: output }, null, 2));
 } finally {
   await browser.close().catch(() => {});
 }
