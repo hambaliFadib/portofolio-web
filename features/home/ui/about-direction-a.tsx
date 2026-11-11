@@ -26,10 +26,16 @@ export function AboutDirectionA() {
     const milestones = milestonesRef.current.filter((item): item is HTMLElement => item !== null);
     if (!milestones.length) return;
 
-    let frame = 0;
+    let frame: number | null = null;
+    let forceRefresh = false;
     const updateActive = (initial = false) => {
-      cancelAnimationFrame(frame);
+      if (initial) forceRefresh = true;
+      if (frame !== null) return;
+
       frame = requestAnimationFrame(() => {
+        frame = null;
+        const shouldForce = forceRefresh;
+        forceRefresh = false;
         const readingLine = window.innerHeight * 0.46;
         const distances = milestones.map((item) => {
           const bounds = item.getBoundingClientRect();
@@ -40,13 +46,14 @@ export function AboutDirectionA() {
           0,
         );
         const currentDistance = distances[activeIndexRef.current] ?? Number.POSITIVE_INFINITY;
-        if (initial || nearestIndex === activeIndexRef.current || distances[nearestIndex] + 48 < currentDistance) {
+        if (shouldForce || nearestIndex === activeIndexRef.current || distances[nearestIndex] + 48 < currentDistance) {
           activeIndexRef.current = nearestIndex;
           setActiveIndex(nearestIndex);
         }
       });
     };
 
+    const handleScroll = () => updateActive();
     const observer = new IntersectionObserver(
       () => updateActive(),
       { rootMargin: "-42% 0px -48% 0px", threshold: 0 },
@@ -56,14 +63,16 @@ export function AboutDirectionA() {
     const refresh = () => updateActive(true);
     const resizeObserver = new ResizeObserver(refresh);
     if (timelineRef.current) resizeObserver.observe(timelineRef.current);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", refresh, { passive: true });
     window.addEventListener("pageshow", refresh);
     refresh();
 
     return () => {
-      cancelAnimationFrame(frame);
+      if (frame !== null) cancelAnimationFrame(frame);
       observer.disconnect();
       resizeObserver.disconnect();
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", refresh);
       window.removeEventListener("pageshow", refresh);
     };

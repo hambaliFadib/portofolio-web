@@ -106,10 +106,16 @@ try {
   const identity = JSON.parse(await fs.readFile(path.join(identityOutput, 'results.json'), 'utf8'));
   const navigation = JSON.parse(await fs.readFile(path.join(navigationOutput, 'navigation-reliability.json'), 'utf8'));
 
-  if (!Array.isArray(about.results) || about.results.length !== 12 ||
+  const scrollspy = about.results.find((item) => item.check === 'scrollspy follows scroll while IntersectionObserver notifications remain unchanged');
+  if (!Array.isArray(about.results) || about.results.length !== 13 ||
       about.results.some((item) => item.passed !== true) ||
+      !scrollspy || scrollspy.from !== 0 || scrollspy.to !== 1 ||
+      scrollspy.activeMilestone !== 'about-stage-02' ||
+      scrollspy.activeControl !== 'about-stage-02' ||
+      scrollspy.canvasState !== 'technical-support' ||
+      scrollspy.observerCallbacksDelivered !== 1 ||
       !Array.isArray(about.pageErrors) || about.pageErrors.length) {
-    throw new Error('About career history regression evidence is missing, failed, or inconsistent.');
+    throw new Error('About career history or scrollspy regression evidence is missing, failed, or inconsistent.');
   }
   if (!theme.counts || theme.counts.passed !== theme.checks?.length || theme.counts.failed !== 0 ||
       theme.checks.some((check) => check.passed !== true) || theme.browserErrors?.length || theme.failures?.length) {

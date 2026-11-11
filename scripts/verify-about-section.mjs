@@ -29,6 +29,33 @@ try {
   for (const width of [320, 390, 768, 1440]) {
     for (const theme of ["light", "dark"]) {
       const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "no-preference" });
+      if (width === 1440 && theme === "light") {
+        await page.addInitScript(() => {
+          const NativeIntersectionObserver = window.IntersectionObserver;
+          let aboutObserverDelivered = false;
+          window.__aboutIntersectionProbe = { delivered: 0, suppressed: 0 };
+          window.IntersectionObserver = class extends NativeIntersectionObserver {
+            constructor(callback, options) {
+              super((entries, observer) => {
+                const isAboutMilestoneObserver = entries.some((entry) =>
+                  entry.target instanceof Element && entry.target.matches("#about [data-about-milestone]"),
+                );
+                if (!isAboutMilestoneObserver) {
+                  callback(entries, observer);
+                  return;
+                }
+                if (aboutObserverDelivered) {
+                  window.__aboutIntersectionProbe.suppressed += 1;
+                  return;
+                }
+                aboutObserverDelivered = true;
+                window.__aboutIntersectionProbe.delivered += 1;
+                callback(entries, observer);
+              }, options);
+            }
+          };
+        });
+      }
       page.on("pageerror", (error) => pageErrors.push(`${width}px/${theme}: ${error.message}`));
       await page.goto(`${origin}/?persona=qa&theme=${theme}#about`, { waitUntil: "domcontentloaded" });
       const about = page.locator("#about");
@@ -79,6 +106,62 @@ try {
       const expectedRatio = width >= 1024 ? 0.8 : 4 / 3;
       assert.ok(Math.abs(layout.width / layout.height - expectedRatio) < 0.02, `photo crop changed at ${width}px/${theme}: ${JSON.stringify(layout)}`);
       assert.equal(layout.lensCount, 0, "lens should not render before pointer hover");
+
+      if (width === 1440 && theme === "light") {
+        await page.waitForFunction(() => window.__aboutIntersectionProbe?.delivered === 1);
+        const scrollspy = await page.evaluate(async () => {
+          const milestones = [...document.querySelectorAll("#about [data-about-timeline] > li[data-about-milestone]")];
+          const nav = document.querySelector('#about nav[aria-label="Professional Journey chapters"]');
+          const probe = window.__aboutIntersectionProbe;
+          const anchors = milestones.slice(0, 2).map((milestone) => {
+            const rect = milestone.getBoundingClientRect();
+            return rect.top + window.scrollY + rect.height * 0.24;
+          });
+          const midpoint = (anchors[0] + anchors[1]) / 2;
+          const readingLine = window.innerHeight * 0.46;
+          const beforeY = Math.max(0, midpoint - 40 - readingLine);
+          const afterY = Math.max(0, midpoint + 40 - readingLine);
+          const waitForFrames = () => new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          });
+          const readState = () => ({
+            activeIndex: milestones.findIndex((milestone) => milestone.dataset.active === "true"),
+            activeMilestone: milestones.find((milestone) => milestone.dataset.active === "true")?.id ?? null,
+            activeControl: nav?.querySelector('[aria-current="step"]')?.getAttribute("aria-controls") ?? null,
+            canvasState: document.querySelector("#about [data-about-canvas]")?.getAttribute("data-about-canvas-state") ?? null,
+            scrollY: window.scrollY,
+            observerCallbacksDelivered: probe.delivered,
+            observerCallbacksSuppressed: probe.suppressed,
+          });
+
+          window.scrollTo({ top: beforeY, behavior: "instant" });
+          await waitForFrames();
+          const before = readState();
+          window.scrollTo({ top: afterY, behavior: "instant" });
+          await waitForFrames();
+          const after = readState();
+          return { before, after, expectedBeforeY: beforeY, expectedAfterY: afterY };
+        });
+        assert.equal(scrollspy.before.activeIndex, 0, `scrollspy fixture must begin on the first milestone: ${JSON.stringify(scrollspy)}`);
+        assert.equal(scrollspy.after.activeIndex, 1, `scroll event must advance the active milestone without further IntersectionObserver notifications: ${JSON.stringify(scrollspy)}`);
+        assert.equal(scrollspy.after.activeMilestone, "about-stage-02", "second milestone must be highlighted after the reading position crosses the transition");
+        assert.equal(scrollspy.after.activeControl, "about-stage-02", "aria-current must follow the second milestone during scroll");
+        assert.equal(scrollspy.after.canvasState, "technical-support", "sticky canvas must follow the active milestone during scroll");
+        assert.equal(scrollspy.after.observerCallbacksDelivered, 1, "the About IntersectionObserver callback must remain frozen after its initial notification");
+        assert.ok(Math.abs(scrollspy.before.scrollY - scrollspy.expectedBeforeY) <= 2, `scrollspy start position was clamped: ${JSON.stringify(scrollspy)}`);
+        assert.ok(Math.abs(scrollspy.after.scrollY - scrollspy.expectedAfterY) <= 2, `scrollspy end position was clamped: ${JSON.stringify(scrollspy)}`);
+        results.push({
+          check: "scrollspy follows scroll while IntersectionObserver notifications remain unchanged",
+          passed: true,
+          from: scrollspy.before.activeIndex,
+          to: scrollspy.after.activeIndex,
+          activeMilestone: scrollspy.after.activeMilestone,
+          activeControl: scrollspy.after.activeControl,
+          canvasState: scrollspy.after.canvasState,
+          observerCallbacksDelivered: scrollspy.after.observerCallbacksDelivered,
+          observerCallbacksSuppressed: scrollspy.after.observerCallbacksSuppressed,
+        });
+      }
 
       if (width === 390 && theme === "light") {
         const image = about.locator("[data-ascii-lens] img");
