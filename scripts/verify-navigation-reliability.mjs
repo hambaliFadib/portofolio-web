@@ -13,13 +13,12 @@ const directTargets = [
   { id: "qa-motion", active: "#top" },
   { id: "projects", active: "#projects" },
   { id: "thinking", active: "#thinking" },
-  { id: "framework", active: "#thinking" },
-  { id: "field-guide", active: "#thinking" },
   { id: "about", active: "#about" },
   { id: "contact", active: "#contact" },
 ];
+const legacyAliases = ["framework", "field-guide"];
 const failures = [];
-const results = { origin, viewport, browser: "Chromium / Playwright", direct: [], projectsReliability: [], interactions: [], failures };
+const results = { origin, viewport, browser: "Chromium / Playwright", structure: null, direct: [], legacyAliases: [], projectsReliability: [], interactions: [], failures };
 
 async function createPage(options = {}) {
   const page = await browser.newPage({ viewport, ...options });
@@ -27,6 +26,19 @@ async function createPage(options = {}) {
     window.__navigationTrace = [];
     window.__navigationEventSequence = 0;
     window.__lastNavigationScrollAt = 0;
+    window.__initialHistoryLength = history.length;
+    window.__legacyReplaceEvents = [];
+    const originalReplaceState = history.replaceState.bind(history);
+    history.replaceState = (state, title, url) => {
+      const previousHash = location.hash;
+      const nextUrl = url == null ? new URL(location.href) : new URL(String(url), location.href);
+      const historyLengthBefore = history.length;
+      const result = originalReplaceState(state, title, url);
+      if (["#framework", "#field-guide"].includes(previousHash) && location.hash === "#thinking" && nextUrl.hash === "#thinking") {
+        window.__legacyReplaceEvents.push({ previousHash, nextHash: location.hash, historyLengthBefore, historyLengthAfter: history.length });
+      }
+      return result;
+    };
     const record = (type) => {
       const targetId = location.hash.slice(1).split("#")[0];
       const target = document.getElementById(targetId);
@@ -205,14 +217,145 @@ async function recordNavigation(page, id, active, label, bucket) {
   return record;
 }
 
+async function verifyHomepageStructure(page) {
+  const structure = await page.evaluate(() => {
+    const expected = ["top", "qa-motion", "projects", "thinking", "about", "contact"];
+    const actualOrder = [...document.querySelectorAll("[id]")]
+      .map((element) => element.id)
+      .filter((id) => expected.includes(id));
+    const removed = ["framework", "field-guide", "framework-heading", "field-guide-heading"];
+    const missing = expected.filter((id) => !document.getElementById(id));
+    const remainingRemovedIds = removed.filter((id) => document.getElementById(id));
+    const brokenLabels = [...document.querySelectorAll("[aria-labelledby]")]
+      .flatMap((element) => (element.getAttribute("aria-labelledby") ?? "").split(/\s+/))
+      .filter((id) => id && !document.getElementById(id));
+    return {
+      expectedOrder: expected,
+      actualOrder,
+      missing,
+      remainingRemovedIds,
+      brokenLabels,
+      pass: missing.length === 0
+        && actualOrder.join("|") === expected.join("|")
+        && remainingRemovedIds.length === 0
+        && brokenLabels.length === 0,
+    };
+  });
+  results.structure = structure;
+  if (!structure.pass) failures.push({ label: "homepage structure and section order", ...structure });
+}
+
+async function verifyLegacyAlias(legacyId) {
+  const page = await createPage();
+  const probe = `legacy-${legacyId}`;
+  await page.goto(`${origin}/?persona=qa&theme=dark&probe=${probe}#${legacyId}`, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => location.hash === "#thinking", null, { timeout: 8000 });
+  await waitForSettled(page, "thinking", "#thinking");
+
+  const state = await readState(page, "thinking");
+  const details = await page.evaluate((expectedProbe) => {
+    const replaceEvents = window.__legacyReplaceEvents.filter((event) => event.previousHash === `#${expectedProbe}`);
+    return {
+      search: location.search,
+      probe: new URLSearchParams(location.search).get("probe"),
+      hashCount: (location.href.match(/#/g) ?? []).length,
+      initialHistoryLength: window.__initialHistoryLength,
+      finalHistoryLength: history.length,
+      replaceEvents,
+    };
+  }, legacyId);
+  let historyFlow = null;
+  if (legacyId === "field-guide") historyFlow = await verifyLegacyBackForward();
+
+  const replacement = details.replaceEvents.at(-1);
+  const pass = state.hash === "#thinking"
+    && state.exists
+    && Math.abs(state.scrollY - state.expectedScroll) <= 30
+    && state.scrollIdleMs >= 300
+    && state.active.length === 1
+    && state.active[0] === "#thinking"
+    && details.probe === probe
+    && details.hashCount === 1
+    && details.initialHistoryLength === details.finalHistoryLength
+    && details.replaceEvents.length === 1
+    && replacement.historyLengthBefore === replacement.historyLengthAfter
+    && (!historyFlow || historyFlow.pass);
+  const record = {
+    label: `legacy #${legacyId} resolves to #thinking`,
+    legacyId,
+    canonicalHash: state.hash,
+    queryPreserved: details.probe === probe,
+    hashCount: details.hashCount,
+    targetExists: state.exists,
+    scrollY: state.scrollY,
+    expectedScroll: state.expectedScroll,
+    targetTop: state.targetTop,
+    scrollIdleMs: state.scrollIdleMs,
+    active: state.active,
+    historyLengthBefore: details.initialHistoryLength,
+    historyLengthAfter: details.finalHistoryLength,
+    replaceEvents: details.replaceEvents,
+    ...(historyFlow ? { historyFlow } : {}),
+    pass,
+  };
+  results.legacyAliases.push(record);
+  if (!pass) failures.push(record);
+  await page.close();
+}
+
+async function verifyLegacyBackForward() {
+  const page = await createPage();
+  await page.goto(`${origin}/?persona=qa&theme=light&probe=history#top`, { waitUntil: "networkidle" });
+  await waitForSettled(page, "top", "#top");
+  await page.locator('nav[aria-label="Primary"] a[href="#projects"]').click();
+  await page.waitForFunction(() => location.hash === "#projects");
+  await waitForSettled(page, "projects", "#projects");
+  const historyBeforeAlias = await page.evaluate(() => history.length);
+
+  let eventSequence = await page.evaluate(() => window.__navigationEventSequence);
+  await page.evaluate(() => { location.hash = "#field-guide"; });
+  await waitForNavigationEvent(page, eventSequence, "#thinking");
+  await waitForSettled(page, "thinking", "#thinking");
+  const historyAfterAlias = await page.evaluate(() => history.length);
+
+  eventSequence = await page.evaluate(() => window.__navigationEventSequence);
+  await page.goBack();
+  await waitForNavigationEvent(page, eventSequence, "#projects");
+  await waitForSettled(page, "projects", "#projects");
+  const back = await readState(page, "projects");
+
+  eventSequence = await page.evaluate(() => window.__navigationEventSequence);
+  await page.goForward();
+  await waitForNavigationEvent(page, eventSequence, "#thinking");
+  await waitForSettled(page, "thinking", "#thinking");
+  const forward = await readState(page, "thinking");
+  const queryPreserved = await page.evaluate(() => new URLSearchParams(location.search).get("probe") === "history");
+  const pass = historyAfterAlias === historyBeforeAlias + 1
+    && back.hash === "#projects"
+    && back.active.length === 1
+    && back.active[0] === "#projects"
+    && forward.hash === "#thinking"
+    && Math.abs(forward.scrollY - forward.expectedScroll) <= 30
+    && forward.active.length === 1
+    && forward.active[0] === "#thinking"
+    && forward.hashCount === 1
+    && queryPreserved;
+  const result = { pass, historyBeforeAlias, historyAfterAlias, back, forward, queryPreserved };
+  await page.close();
+  return result;
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   for (const { id, active } of directTargets) {
-    const page = await createPage();
+    const page = await createPage(id === "contact" ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } : {});
     await page.goto(`${origin}/?persona=qa&theme=light#${id}`, { waitUntil: "networkidle" });
+    if (id === "top") await verifyHomepageStructure(page);
     await recordNavigation(page, id, active, `direct #${id}`, results.direct);
     await page.close();
   }
+
+  for (const id of legacyAliases) await verifyLegacyAlias(id);
 
   for (let run = 1; run <= 20; run += 1) {
     const page = await createPage();
@@ -295,7 +438,7 @@ try {
   const theme = await createPage();
   await theme.goto(`${origin}/?persona=qa&theme=light#projects`, { waitUntil: "networkidle" });
   await waitForSettled(theme, "projects", "#projects");
-  await theme.locator("[data-theme-toggle]").click();
+  await theme.locator('header [data-theme-toggle]').click();
   await theme.waitForFunction(() => new URLSearchParams(location.search).get("theme") === "dark");
   await recordNavigation(theme, "projects", "#projects", "theme switch preserves anchor", results.interactions);
   await theme.close();
@@ -327,7 +470,9 @@ await fs.mkdir(path.dirname(evidencePath), { recursive: true });
 await fs.writeFile(evidencePath, `${JSON.stringify(results, null, 2)}\n`);
 console.log(JSON.stringify({
   evidencePath,
+  structure: results.structure?.pass ? "PASS" : "FAIL",
   direct: `${results.direct.filter((item) => item.pass).length}/${results.direct.length}`,
+  legacyAliases: `${results.legacyAliases.filter((item) => item.pass).length}/${results.legacyAliases.length}`,
   projectsReliability: `${results.projectsReliability.filter((item) => item.pass).length}/${results.projectsReliability.length}`,
   interactions: `${results.interactions.filter((item) => item.pass).length}/${results.interactions.length}`,
   failures,

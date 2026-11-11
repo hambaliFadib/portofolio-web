@@ -87,7 +87,7 @@ try {
       const dialog = page.getByRole('dialog', { name: 'Site navigation' });
       const menuOpen = await dialog.isVisible();
       check('mobile-navigation-opens', mobileNavHidden && menuVisible && menuOpen, { mobileNavHidden, menuVisible, menuOpen });
-      await page.getByRole('button', { name: 'Close menu' }).click();
+      await dialog.getByRole('button', { name: 'Close menu' }).click();
     }
 
     const missingTargets = await page.evaluate(() => {

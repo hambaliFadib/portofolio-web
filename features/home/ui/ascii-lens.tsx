@@ -116,6 +116,8 @@ interface AsciiLensProps {
   transitionStage: PersonaTransitionStage;
   className?: string;
   imageClassName?: string;
+  aspectRatioClassName?: string;
+  idleZoom?: boolean;
 }
 
 export function AsciiLens({
@@ -126,6 +128,8 @@ export function AsciiLens({
   transitionStage,
   className = "",
   imageClassName = "",
+  aspectRatioClassName = "",
+  idleZoom = true,
 }: AsciiLensProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -297,21 +301,34 @@ export function AsciiLens({
     // --- coordinate-space conversion ---
     // lensPos is in *displayed-image* pixel space (matches width×height props).
     // drawImage(sourceRect) must be in the *intrinsic* image coordinate space.
-    const renderedWidth = img.getBoundingClientRect().width;
-    const renderedHeight = img.getBoundingClientRect().height;
+    const renderedWidth = img.clientWidth;
+    const renderedHeight = img.clientHeight;
     if (!renderedWidth || !renderedHeight) return;
-    const scaleX = img.naturalWidth / renderedWidth;
-    const scaleY = img.naturalHeight / renderedHeight;
+    const coverScale = Math.max(renderedWidth / img.naturalWidth, renderedHeight / img.naturalHeight);
+    const contentWidth = img.naturalWidth * coverScale;
+    const contentHeight = img.naturalHeight * coverScale;
+    const cropOffsetX = (renderedWidth - contentWidth) / 2;
+    const cropOffsetY = (renderedHeight - contentHeight) / 2;
+    const transformValue = getComputedStyle(img).transform;
+    const transform = new DOMMatrixReadOnly(transformValue === "none" ? undefined : transformValue);
+    const transformScaleX = transform.a || 1;
+    const transformScaleY = transform.d || 1;
+    const densityX = coverScale * transformScaleX;
+    const densityY = coverScale * transformScaleY;
+    const displayedX = (lensPos.x - renderedWidth / 2) / transformScaleX + renderedWidth / 2;
+    const displayedY = (lensPos.y - renderedHeight / 2) / transformScaleY + renderedHeight / 2;
 
     // Source crop in intrinsic-image coordinates, centered on pointer.
     // srcCropRadius_intrinsic = (LENS_RADIUS / ZOOM_FACTOR) * scale
     const lensRadius = lensPos.diameter / 2;
     const lensDiameter = lensPos.diameter;
-    const srcCropRadiusX = (lensRadius / ZOOM_FACTOR) * scaleX;
-    const srcCropRadiusY = (lensRadius / ZOOM_FACTOR) * scaleY;
+    const srcCropRadiusX = lensRadius / (ZOOM_FACTOR * densityX);
+    const srcCropRadiusY = lensRadius / (ZOOM_FACTOR * densityY);
 
-    const ptrIntrinsicX = lensPos.x * scaleX;
-    const ptrIntrinsicY = lensPos.y * scaleY;
+    const ptrIntrinsicX = (displayedX - cropOffsetX) / coverScale;
+    const ptrIntrinsicY = (displayedY - cropOffsetY) / coverScale;
+    canvas.dataset.sourceCenterX = ptrIntrinsicX.toFixed(2);
+    canvas.dataset.sourceCenterY = ptrIntrinsicY.toFixed(2);
 
     const requestedSrcLeft = ptrIntrinsicX - srcCropRadiusX;
     const requestedSrcTop = ptrIntrinsicY - srcCropRadiusY;
@@ -321,10 +338,10 @@ export function AsciiLens({
     const srcH = Math.min(img.naturalHeight - srcTop, srcCropRadiusY * 2);
 
     // Destination: fill the lens disc, centering if edge-clamped.
-    const dstW = srcW * (renderedWidth / img.naturalWidth) * ZOOM_FACTOR;
-    const dstH = srcH * (renderedHeight / img.naturalHeight) * ZOOM_FACTOR;
-    const dstX = (srcLeft - requestedSrcLeft) * (renderedWidth / img.naturalWidth) * ZOOM_FACTOR;
-    const dstY = (srcTop - requestedSrcTop) * (renderedHeight / img.naturalHeight) * ZOOM_FACTOR;
+    const dstW = srcW * densityX * ZOOM_FACTOR;
+    const dstH = srcH * densityY * ZOOM_FACTOR;
+    const dstX = (srcLeft - requestedSrcLeft) * densityX * ZOOM_FACTOR;
+    const dstY = (srcTop - requestedSrcTop) * densityY * ZOOM_FACTOR;
 
     // --- reset context state ---
     if (canvas.width !== lensDiameter) canvas.width = lensDiameter;
@@ -415,8 +432,9 @@ export function AsciiLens({
       <div
         ref={containerRef}
         data-ascii-lens
-        className={`relative overflow-hidden rounded-xl ${className}`}
-        style={{ width: "100%", maxWidth: width, aspectRatio: `${width} / ${height}` }}
+        className={`relative overflow-hidden rounded-xl ${aspectRatioClassName} ${className}`}
+        style={{ width: "100%", maxWidth: width, aspectRatio: aspectRatioClassName ? undefined : `${width} / ${height}` }}
+        data-ascii-lens-ratio={aspectRatioClassName || `${width} / ${height}`}
       >
         <img
           ref={imgRef}
@@ -435,8 +453,9 @@ export function AsciiLens({
     <div
       ref={containerRef}
       data-ascii-lens
-      className={`relative overflow-hidden rounded-xl ${className}`}
-      style={{ width: "100%", maxWidth: width, aspectRatio: `${width} / ${height}` }}
+      className={`relative overflow-hidden rounded-xl ${aspectRatioClassName} ${className}`}
+      style={{ width: "100%", maxWidth: width, aspectRatio: aspectRatioClassName ? undefined : `${width} / ${height}` }}
+      data-ascii-lens-ratio={aspectRatioClassName || `${width} / ${height}`}
       onPointerMove={handlePointerMove}
       onPointerEnter={handleEnter}
       onPointerLeave={handleLeave}
@@ -449,7 +468,7 @@ export function AsciiLens({
         height={height}
         loading="lazy"
           className={`h-full w-full object-cover transition-transform duration-200 ${imageClassName} ${
-          showLens || transitionStage !== "idle" ? "" : "scale-105"
+          !idleZoom || showLens || transitionStage !== "idle" ? "" : "scale-105"
         }`}
       />
 

@@ -43,7 +43,7 @@ export function PageMotion({ children }: PropsWithChildren) {
   }, [pathname]);
 
   return (
-    <main className="flex-1 overflow-hidden">
+    <main className="flex-1 overflow-clip">
       <div
         key={pathname}
         ref={pageRef}

@@ -5,12 +5,15 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { Menu, X } from "lucide-react";
+import { X } from "lucide-react";
+import { motion } from "motion/react";
 import { ThemeToggle } from "@/features/theme";
 import { useIdentity } from "@/components/identity/identity-provider";
 import { cn } from "@/lib/utils";
+import { useReducedMotionPreference } from "@/components/motion/use-reduced-motion";
 
 /**
  * Quiet architectural rail for the single-page portfolio.
@@ -32,8 +35,8 @@ interface NavItem {
   label: string;
 }
 
-/** Primary destinations — QA Motion and Field Guide stay
- *  scroll-reachable content sections, not nav items. */
+/** Primary destinations — QA Journey remains scroll-reachable content,
+ *  while the primary navigation stays focused on the main sections. */
 const NAV_ITEMS: NavItem[] = [
   { id: "top", label: "Home" },
   { id: "projects", label: "Projects" },
@@ -41,17 +44,19 @@ const NAV_ITEMS: NavItem[] = [
   { id: "about", label: "About" },
 ];
 
+const LEGACY_FRAGMENT_REDIRECTS: Record<string, string> = {
+  framework: "thinking",
+  "field-guide": "thinking",
+};
+
 /** Every section observed by the scroll-spy, mapped to the
  *  nav item that owns it. Sections between nav items
- *  (qa-motion, framework, field-guide) keep the active
- *  state correct while scrolling through them. */
+ *  (qa-motion) keep the active state correct while scrolling. */
 const SECTION_TO_NAV: Record<string, NavId | "contact"> = {
   top: "top",
   "qa-motion": "top",
   projects: "projects",
   thinking: "thinking",
-  framework: "thinking",
-  "field-guide": "thinking",
   about: "about",
   contact: "contact",
 };
@@ -68,12 +73,24 @@ const CONTACT_ID = "contact";
  * section always matches the visitor's reading position.
  */
 const SPY_ROOT_MARGIN = "-20% 0px -30% 0px";
+const subscribeToClientReadiness = () => () => {};
+const getClientReadiness = () => true;
+const getServerReadiness = () => false;
 
 export function Header() {
   const { persona, switchPersona, transitioning } = useIdentity();
   const visibleNavItems = persona === "qa" ? NAV_ITEMS : NAV_ITEMS.slice(0, 1);
   const [activeSection, setActiveSection] = useState<NavId | "contact">("top");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuExitPending, setMenuExitPending] = useState(false);
+  const menuScrollLocked = mobileMenuOpen || menuExitPending;
+  const portalReady = useSyncExternalStore(
+    subscribeToClientReadiness,
+    getClientReadiness,
+    getServerReadiness,
+  );
+  const reduceMotion = useReducedMotionPreference();
+
   const portalRoot = typeof document === "undefined" ? null : document.getElementById("portfolio-identity");
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -83,119 +100,171 @@ export function Header() {
 
   const observerReportedSectionRef = useRef(false);
   // ── Scroll-spy ─────────────────────────────────────────────
-  // IntersectionObserver over the detection band. When adjacent
-  // sections both touch the band (tall sections overlap it), the
-  // section whose center is nearest the viewport center wins —
-  // deterministic, matches the reading position, no flicker.
+  // Recalculate current section geometry on scroll. IntersectionObserver
+  // alone is insufficient for tall sections: their intersection can remain
+  // true while their center moves across the viewport, leaving stale distances.
+  // The observer remains as a layout-change signal; scroll sampling keeps the
+  // active destination synchronized throughout long sections.
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") {
-      return;
-    }
-
     let disposed = false;
+    let frame: number | null = null;
     observerReportedSectionRef.current = false;
-    const intersecting = new Map<string, number>();
-    const bandCenter = () => window.innerHeight / 2;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (disposed) return;
-        for (const entry of entries) {
-          const owner = SECTION_TO_NAV[entry.target.id];
-          if (!owner) {
-            continue;
-          }
-          if (!entry.isIntersecting) {
-            intersecting.delete(owner);
-            continue;
-          }
-          const rect = entry.boundingClientRect;
-          const center = rect.top + rect.height / 2;
-          intersecting.set(owner, Math.abs(center - bandCenter()));
-        }
+    const updateActiveSection = () => {
+      frame = null;
+      if (disposed) return;
 
-        let bestId: string | null = null;
-        let bestDistance = Number.POSITIVE_INFINITY;
-        for (const [id, distance] of intersecting) {
-          if (distance < bestDistance) {
-            bestId = id;
-            bestDistance = distance;
-          }
-        }
-        if (bestId) {
-          observerReportedSectionRef.current = true;
-          setActiveSection(bestId as NavId | "contact");
-        }
-      },
-      { rootMargin: SPY_ROOT_MARGIN, threshold: 0 },
-    );
+      const bandTop = window.innerHeight * 0.2;
+      const bandBottom = window.innerHeight * 0.7;
+      const bandCenter = window.innerHeight / 2;
+      let bestOwner: NavId | "contact" | null = null;
+      let bestDistance = Number.POSITIVE_INFINITY;
 
-    const targets = SPY_SECTION_IDS;
-    for (const id of targets) {
-      const section = document.getElementById(id);
-      if (section) {
-        observer.observe(section);
+      for (const id of SPY_SECTION_IDS) {
+        const section = document.getElementById(id);
+        const owner = SECTION_TO_NAV[id];
+        if (!section || !owner) continue;
+
+        const rect = section.getBoundingClientRect();
+        if (rect.bottom <= bandTop || rect.top >= bandBottom) continue;
+
+        const sectionCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(sectionCenter - bandCenter);
+        if (distance < bestDistance) {
+          bestOwner = owner;
+          bestDistance = distance;
+        }
       }
+
+      if (bestOwner) {
+        observerReportedSectionRef.current = true;
+        setActiveSection(bestOwner);
+      }
+    };
+
+    const scheduleUpdate = () => {
+      if (disposed || frame !== null) return;
+      frame = window.requestAnimationFrame(updateActiveSection);
+    };
+
+    const observer = typeof IntersectionObserver === "undefined"
+      ? null
+      : new IntersectionObserver(scheduleUpdate, {
+          rootMargin: SPY_ROOT_MARGIN,
+          threshold: 0,
+        });
+
+    for (const id of SPY_SECTION_IDS) {
+      const section = document.getElementById(id);
+      if (section) observer?.observe(section);
     }
+
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+    scheduleUpdate();
 
     return () => {
       disposed = true;
-      observer.disconnect();
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
     };
   }, [persona]);
 
-  // Native fragment scrolling may start before Next finishes hydration. Once
-  // the initial fonts are ready, correct only a missed/misaligned deep link.
-  // This is a single bounded check; same-page clicks remain native anchors.
+  // Native fragment scrolling may start before Next finishes hydration. Align
+  // the initial target after fonts settle, and normalize only the two legacy
+  // hashes. replaceState does not scroll or emit hashchange, so aliases reached
+  // later get the same bounded alignment with the existing intent safeguards.
   useEffect(() => {
-    const id = window.location.hash.slice(1);
-    if (!id) return;
-
-    let cancelled = false;
+    let disposed = false;
     let frame: number | null = null;
+    let alignmentVersion = 0;
+    let alignmentTarget: string | null = null;
+
     const cancelAlignment = () => {
-      cancelled = true;
+      alignmentVersion += 1;
+      alignmentTarget = null;
       if (frame !== null) {
         window.cancelAnimationFrame(frame);
         frame = null;
       }
     };
-    const handleHashChange = () => {
-      if (window.location.hash.slice(1) !== id) cancelAlignment();
+
+    const alignTo = (id: string) => {
+      alignmentVersion += 1;
+      const version = alignmentVersion;
+      alignmentTarget = id;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+        frame = null;
+      }
+
+      void document.fonts.ready.then(() => {
+        if (disposed || version !== alignmentVersion || window.location.hash !== `#${id}`) return;
+        frame = window.requestAnimationFrame(() => {
+          frame = null;
+          if (disposed || version !== alignmentVersion || window.location.hash !== `#${id}`) return;
+          const target = document.getElementById(id);
+          if (!target) return;
+
+          const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+          const pageTop = target.getBoundingClientRect().top + window.scrollY;
+          const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+          const desiredScroll = Math.min(maxScroll, Math.max(0, pageTop - margin));
+          if (Math.abs(window.scrollY - desiredScroll) > 30) {
+            window.scrollTo({ top: desiredScroll, behavior: "instant" });
+          }
+          alignmentTarget = null;
+        });
+      });
     };
+
+    const canonicalizeLegacyFragment = () => {
+      const legacyId = window.location.hash.slice(1);
+      const targetId = LEGACY_FRAGMENT_REDIRECTS[legacyId];
+      if (!targetId) return null;
+
+      const canonicalUrl = new URL(window.location.href);
+      canonicalUrl.hash = targetId;
+      window.history.replaceState(window.history.state, "", canonicalUrl);
+      return targetId;
+    };
+
+    const handleHashChange = () => {
+      const targetId = canonicalizeLegacyFragment();
+      if (targetId) {
+        alignTo(targetId);
+      } else if (alignmentTarget && window.location.hash !== `#${alignmentTarget}`) {
+        cancelAlignment();
+      }
+    };
+
     const handleScrollIntent = (event: KeyboardEvent) => {
       if (["ArrowDown", "ArrowUp", "End", "Home", "PageDown", "PageUp", " "].includes(event.key)) {
         cancelAlignment();
       }
     };
+
+    const initialLegacyTarget = canonicalizeLegacyFragment();
+    const initialTarget = initialLegacyTarget ?? window.location.hash.slice(1);
+    if (initialTarget) alignTo(initialTarget);
+
     window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener("popstate", handleHashChange);
     window.addEventListener("wheel", cancelAlignment, { passive: true });
     window.addEventListener("touchstart", cancelAlignment, { passive: true });
+    window.addEventListener("pointerdown", cancelAlignment, { passive: true });
     window.addEventListener("keydown", handleScrollIntent);
 
-    void document.fonts.ready.then(() => {
-      if (cancelled || window.location.hash.slice(1) !== id) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = null;
-        if (cancelled || window.location.hash.slice(1) !== id) return;
-        const target = document.getElementById(id);
-        if (!target) return;
-
-        const margin = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
-        const pageTop = target.getBoundingClientRect().top + window.scrollY;
-        const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-        const desiredScroll = Math.min(maxScroll, Math.max(0, pageTop - margin));
-        if (Math.abs(window.scrollY - desiredScroll) > 30) {
-          window.scrollTo({ top: desiredScroll, behavior: "instant" });
-        }
-      });
-    });
-
     return () => {
+      disposed = true;
       cancelAlignment();
       window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener("popstate", handleHashChange);
       window.removeEventListener("wheel", cancelAlignment);
       window.removeEventListener("touchstart", cancelAlignment);
+      window.removeEventListener("pointerdown", cancelAlignment);
       window.removeEventListener("keydown", handleScrollIntent);
     };
   }, []);
@@ -228,14 +297,16 @@ export function Header() {
   }, [persona]);
 
   // ── Mobile menu ────────────────────────────────────────────
-  const closeMenu = useCallback(() => setMobileMenuOpen(false), []);
+  const closeMenu = useCallback(() => {
+    setMenuExitPending(true);
+    setMobileMenuOpen(false);
+  }, []);
 
   const handlePersonaSwitch = useCallback(() => {
     if (personaSwitchPendingRef.current || transitioning) return;
     personaSwitchPendingRef.current = true;
     if (mobileMenuOpen) {
       closeMenu();
-      document.body.style.overflow = "";
       personaSwitchFrameRef.current = window.requestAnimationFrame(() => {
         personaSwitchFrameRef.current = null;
         personaSwitchPendingRef.current = false;
@@ -253,14 +324,12 @@ export function Header() {
     }
   }, []);
 
-  // Keep keyboard focus inside the modal menu and restore it to its trigger.
+  // Keep focus inside the full-screen navigation while it is modal.
   useEffect(() => {
     if (!mobileMenuOpen) {
-      document.body.style.overflow = "";
       return;
     }
 
-    document.body.style.overflow = "hidden";
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     firstMenuItemRef.current?.focus();
 
@@ -288,13 +357,28 @@ export function Header() {
       }
     };
 
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktopQuery.matches) closeMenu();
+    };
+    desktopQuery.addEventListener("change", closeOnDesktop);
     document.addEventListener("keydown", onKeyDown);
     return () => {
+      desktopQuery.removeEventListener("change", closeOnDesktop);
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
       if (previouslyFocused?.isConnected) previouslyFocused.focus();
     };
   }, [mobileMenuOpen, closeMenu]);
+
+  useEffect(() => {
+    if (!menuScrollLocked) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [menuScrollLocked]);
 
   const handleMenuNavigate = () => {
     closeMenu();
@@ -310,7 +394,7 @@ export function Header() {
         {/* Left — identity */}
         <button
           type="button"
-          aria-label={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
+          aria-label={`Hambali Fadib, ${persona === "qa" ? "QA Engineer" : "Full Stack Engineer"}. Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
           title={`Switch to ${persona === "qa" ? "Full Stack Engineer" : "QA Engineer"}`}
           disabled={transitioning}
           className="group flex min-w-0 cursor-pointer flex-col items-start rounded-md bg-transparent text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -320,7 +404,7 @@ export function Header() {
             <span className="truncate text-[15px] font-semibold tracking-tight">Hambali Fadib</span>
             <span aria-hidden="true" className="text-xs text-coral transition-transform group-hover:translate-x-0.5">↔</span>
           </span>
-          <span className="mt-1 flex items-center gap-1.5 font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground/80">
+          <span className="mt-1 flex items-center gap-1.5 font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             <span>{persona === "qa" ? "QA ENGINEER" : "FULL STACK ENGINEER"}</span>
             <span aria-hidden="true" className="text-coral">· switch</span>
           </span>
@@ -375,72 +459,155 @@ export function Header() {
             aria-expanded={mobileMenuOpen}
             aria-controls="primary-mobile-menu"
             className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md text-foreground transition-colors duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
-            onClick={() => setMobileMenuOpen((open) => !open)}
+            onClick={() => {
+              if (mobileMenuOpen) {
+                closeMenu();
+              } else {
+                setMenuExitPending(false);
+                setMobileMenuOpen(true);
+              }
+            }}
           >
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            )}
+            <span data-menu-icon aria-hidden="true" className="relative block h-6 w-6">
+              <span
+                data-menu-icon-bar="top"
+                className="absolute left-0 top-1/2 h-[2px] w-6 rounded-full bg-current transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                style={{
+                  transform: mobileMenuOpen
+                    ? "translateY(-50%) rotate(45deg)"
+                    : "translateY(calc(-50% - 6px)) rotate(0deg)",
+                  transformOrigin: "center center",
+                }}
+              />
+              <span
+                data-menu-icon-bar="middle"
+                className="absolute left-0 top-1/2 h-[2px] w-6 rounded-full bg-current opacity-100 transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                style={{
+                  transform: `translateY(-50%) scaleX(${mobileMenuOpen ? 0 : 1})`,
+                  transformOrigin: "center center",
+                  opacity: mobileMenuOpen ? 0 : 1,
+                }}
+              />
+              <span
+                data-menu-icon-bar="bottom"
+                className="absolute left-0 top-1/2 h-[2px] w-6 rounded-full bg-current transition-all duration-300 ease-in-out motion-reduce:transition-none"
+                style={{
+                  transform: mobileMenuOpen
+                    ? "translateY(-50%) rotate(-45deg)"
+                    : "translateY(calc(-50% + 6px)) rotate(0deg)",
+                  transformOrigin: "center center",
+                }}
+              />
+            </span>
           </button>
         </div>
       </nav>
 
-      {/* Mobile menu — primary destinations + contact */}
-      {mobileMenuOpen && portalRoot && createPortal((
-        <div
+      {/* Full-screen mobile navigation, with its own modal controls. */}
+      {portalReady && portalRoot && createPortal((
+        <motion.div
           id="primary-mobile-menu"
           ref={mobileMenuRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Site navigation"
-          className={cn(
-            "fixed inset-x-0 bottom-0 top-[68px] z-30 flex-col overflow-y-auto bg-background lg:hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-2 motion-safe:duration-200",
-          )}
-          style={{ display: "flex" }}
+          role={mobileMenuOpen ? "dialog" : undefined}
+          aria-modal={mobileMenuOpen || undefined}
+          aria-label={mobileMenuOpen ? "Site navigation" : undefined}
+          aria-hidden={!mobileMenuOpen}
+          inert={!mobileMenuOpen}
+          className="fixed inset-0 z-50 flex h-dvh flex-col overflow-y-auto bg-background lg:hidden"
+          initial="closed"
+          animate={mobileMenuOpen ? "open" : "closed"}
+          onAnimationComplete={() => {
+            if (!mobileMenuOpen) setMenuExitPending(false);
+          }}
+          variants={{
+            closed: {
+              opacity: reduceMotion ? 0 : 1,
+              y: reduceMotion ? 0 : "-100%",
+              transition: {
+                duration: reduceMotion ? 0 : 0.34,
+                ease: [0.4, 0, 0.2, 1],
+                when: "afterChildren",
+              },
+            },
+            open: {
+              opacity: 1,
+              y: 0,
+              transition: {
+                duration: reduceMotion ? 0 : 0.34,
+                ease: [0.4, 0, 0.2, 1],
+                delayChildren: reduceMotion ? 0 : 0.04,
+                staggerChildren: reduceMotion ? 0 : 0.06,
+                when: "beforeChildren",
+              },
+            },
+          }}
+          style={{ pointerEvents: mobileMenuOpen ? "auto" : "none" }}
         >
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-1 px-6 py-6">
-            <ul className="flex flex-col">
+          <div className="flex flex-1 items-center justify-center px-6 py-20 sm:px-8">
+            <motion.ul
+              className="flex w-full max-w-2xl flex-col items-center gap-2"
+              variants={{
+                closed: { transition: { staggerChildren: reduceMotion ? 0 : 0.06, staggerDirection: 1 } },
+                open: { transition: { staggerChildren: reduceMotion ? 0 : 0.06 } },
+              }}
+            >
               {visibleNavItems.map((item, index) => (
-                <li key={item.id}>
+                <motion.li
+                  key={item.id}
+                  className="w-full"
+                  variants={{
+                    closed: { opacity: 0, y: reduceMotion ? 0 : 12, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } },
+                    open: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } },
+                  }}
+                >
                   <a
-                    href={`#${item.id}`}
+                    href={"#" + item.id}
                     ref={index === 0 ? firstMenuItemRef : undefined}
                     aria-current={activeSection === item.id ? "true" : undefined}
-                    className={cn(
-                      "flex min-h-[52px] items-center justify-between border-b border-border/50 px-1 text-lg font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      activeSection === item.id
-                        ? "text-foreground"
-                        : "text-muted-foreground",
-                    )}
+                    className="flex min-h-[60px] items-center justify-center rounded-md px-4 text-xl font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none sm:text-2xl"
                     onClick={handleMenuNavigate}
                   >
-                    <span>{item.label}</span>
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "h-[6px] w-[6px] rounded-full transition-colors duration-200",
-                        activeSection === item.id
-                          ? "bg-coral"
-                          : "bg-transparent",
-                      )}
-                    />
+                    {item.label}
                   </a>
-                </li>
+                </motion.li>
               ))}
-            </ul>
-
-            {persona === "qa" && <a
-              href="#contact"
-              aria-current={activeSection === CONTACT_ID ? "true" : undefined}
-              className="mt-6 flex min-h-[52px] items-center justify-center rounded-md bg-foreground px-4 text-base font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={handleMenuNavigate}
-            >
-              Get in Touch
-            </a>}
+              {persona === "qa" && (
+                <motion.li
+                  className="w-full pt-2"
+                  variants={{
+                    closed: { opacity: 0, y: reduceMotion ? 0 : 12, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } },
+                    open: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0 : 0.3, ease: "easeOut" } },
+                  }}
+                >
+                  <a
+                    href="#contact"
+                    aria-current={activeSection === CONTACT_ID ? "true" : undefined}
+                    className="flex min-h-[52px] items-center justify-center rounded-md bg-foreground px-4 text-base font-medium text-background transition-colors duration-200 hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                    onClick={handleMenuNavigate}
+                  >
+                    Get in Touch
+                  </a>
+                </motion.li>
+              )}
+            </motion.ul>
           </div>
-        </div>
+
+          <div className="absolute inset-x-0 top-0 mx-auto flex h-[68px] w-full max-w-7xl items-center justify-end px-6 lg:px-8">
+              <button
+                type="button"
+                aria-label="Close menu"
+                className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md text-foreground transition-colors duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  closeMenu();
+                  menuToggleRef.current?.focus();
+                }}
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+          </div>
+        </motion.div>
       ), portalRoot)}
+
     </header>
   );
 }

@@ -20,6 +20,7 @@ const themeOutput = path.join(outputRoot, 'theme-toggle');
 const homepageOutput = path.join(outputRoot, 'homepage');
 const identityOutput = path.join(outputRoot, 'identity');
 const projectsOutput = path.join(outputRoot, 'projects');
+const aboutOutput = path.join(outputRoot, 'about');
 const navigationOutput = path.join(outputRoot, 'navigation');
 
 if (path.dirname(outputRoot) !== artifactRoot) {
@@ -44,6 +45,11 @@ const suites = [
     name: 'Editorial projects showcase and ASCII lens',
     script: 'scripts/verify-projects-showcase.mjs',
     env: { PORTFOLIO_PROJECTS_OUTPUT_DIR: projectsOutput },
+  },
+  {
+    name: 'Professional Journey career history and About accessibility',
+    script: 'scripts/verify-about-section.mjs',
+    env: { PORTFOLIO_ABOUT_OUTPUT_DIR: aboutOutput },
   },
   {
     name: 'Theme Toggle',
@@ -96,9 +102,24 @@ const evidenceFailures = [];
 try {
   const homepage = readAndVerifyHomepageReport(path.join(homepageOutput, 'repository-regression.json'), origin);
   const theme = JSON.parse(await fs.readFile(path.join(themeOutput, 'theme-toggle-verification.json'), 'utf8'));
+  const about = JSON.parse(await fs.readFile(path.join(aboutOutput, 'about-regression.json'), 'utf8'));
   const identity = JSON.parse(await fs.readFile(path.join(identityOutput, 'results.json'), 'utf8'));
   const navigation = JSON.parse(await fs.readFile(path.join(navigationOutput, 'navigation-reliability.json'), 'utf8'));
 
+  if (!Array.isArray(about.results)) {
+    throw new Error('About career history regression evidence is missing or malformed.');
+  }
+  const scrollspy = about.results.find((item) => item.check === 'scrollspy follows scroll while IntersectionObserver notifications remain unchanged');
+  if (about.results.length !== 13 ||
+      about.results.some((item) => item.passed !== true) ||
+      !scrollspy || scrollspy.from !== 0 || scrollspy.to !== 1 ||
+      scrollspy.activeMilestone !== 'about-stage-02' ||
+      scrollspy.activeControl !== 'about-stage-02' ||
+      scrollspy.canvasState !== 'technical-support' ||
+      scrollspy.observerCallbacksDelivered !== 1 ||
+      !Array.isArray(about.pageErrors) || about.pageErrors.length) {
+    throw new Error('About career history or scrollspy regression evidence is missing, failed, or inconsistent.');
+  }
   if (!theme.counts || theme.counts.passed !== theme.checks?.length || theme.counts.failed !== 0 ||
       theme.checks.some((check) => check.passed !== true) || theme.browserErrors?.length || theme.failures?.length) {
     throw new Error('Theme Toggle evidence has missing, failed, or inconsistent checks.');
@@ -110,13 +131,15 @@ try {
       !Array.isArray(identity.failures) || identity.failures.length) {
     throw new Error('Identity/persona evidence has missing checks, browser errors, or failures.');
   }
-  if (navigation.direct?.length !== 8 || navigation.direct.some((item) => item.pass !== true) ||
+  if (navigation.structure?.pass !== true ||
+      navigation.direct?.length !== 6 || navigation.direct.some((item) => item.pass !== true) ||
+      navigation.legacyAliases?.length !== 2 || navigation.legacyAliases.some((item) => item.pass !== true) ||
       navigation.projectsReliability?.length !== 20 || navigation.projectsReliability.some((item) => item.pass !== true) ||
       navigation.interactions?.length !== 10 || navigation.interactions.some((item) => item.pass !== true) ||
       navigation.failures?.length) {
-    throw new Error('Navigation evidence has missing, failed, or inconsistent direct-link, repeatability, or interaction checks.');
+    throw new Error('Navigation evidence has missing, failed, or inconsistent structure, direct-link, legacy-alias, repeatability, or interaction checks.');
   }
-  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation ${navigation.direct.length} direct + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
+  console.log(`Validated regression evidence: homepage ${homepage.passed}/${homepage.passed}, About ${about.results.length}/13, Theme Toggle ${theme.counts.passed}/${theme.counts.passed}, identity first paint ${identity.firstPaint.length}/16 and metadata ${identity.metadata.length}, navigation structure PASS + ${navigation.direct.length} direct + ${navigation.legacyAliases.length} legacy aliases + ${navigation.projectsReliability.length} repeated + ${navigation.interactions.length} interactions.`);
 } catch (error) {
   evidenceFailures.push(error.message);
   failed = true;

@@ -32,7 +32,7 @@ async function openPage(persona, theme, viewport) {
   const page = await browser.newPage({ viewport });
   observe(page, `${persona}/${theme}/${viewport.width}`);
   await page.goto(`${origin}/?persona=${persona}&theme=${theme}`, { waitUntil: "domcontentloaded" });
-  await page.locator("[data-theme-toggle]").waitFor({ state: "visible" });
+  await page.locator('header [data-theme-toggle]').waitFor({ state: "visible" });
   await page.locator("#top h1").waitFor({ state: "visible" });
   return page;
 }
@@ -45,7 +45,7 @@ try {
     for (const persona of ["qa", "fullstack"]) {
       for (const theme of ["light", "dark"]) {
         const page = await openPage(persona, theme, viewport);
-        const button = page.locator("[data-theme-toggle]");
+        const button = page.locator('header [data-theme-toggle]');
         const original = await button.evaluate(element => {
           const rect = element.getBoundingClientRect();
           const style = getComputedStyle(element);
@@ -99,7 +99,7 @@ try {
   }
 
   const keyboard = await openPage("qa", "light", viewports[0]);
-  const keyboardButton = keyboard.locator("[data-theme-toggle]");
+  const keyboardButton = keyboard.locator('header [data-theme-toggle]');
   for (let index = 0; index < 12; index += 1) {
     if (await keyboardButton.evaluate(element => document.activeElement === element)) break;
     await keyboard.keyboard.press("Tab");
@@ -114,7 +114,7 @@ try {
   const reduced = await browser.newPage({ viewport: viewports[0], reducedMotion: "reduce" });
   observe(reduced, "reduced-motion");
   await reduced.goto(`${origin}/?persona=qa&theme=light`, { waitUntil: "domcontentloaded" });
-  const reducedButton = reduced.locator("[data-theme-toggle]");
+  const reducedButton = reduced.locator('header [data-theme-toggle]');
   const reducedStyle = await reducedButton.locator("svg").first().evaluate(element => ({
     property: getComputedStyle(element).transitionProperty,
     buttonProperty: getComputedStyle(element.parentElement).transitionProperty,

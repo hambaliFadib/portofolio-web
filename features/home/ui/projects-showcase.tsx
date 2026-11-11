@@ -69,7 +69,7 @@ export function ProjectsShowcase() {
                     <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
                       {repository && (
                         <Link href={repository.href} target="_blank" rel="noopener noreferrer"
-                          aria-label={`Explore ${project.title} source on GitHub`}
+                          aria-label={`Explore source: ${project.title} on GitHub`}
                           className="group inline-flex cursor-pointer items-center gap-2 border-b border-coral pb-1 text-sm font-semibold text-foreground transition-colors hover:text-coral focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
                           Explore source <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                         </Link>

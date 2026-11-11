@@ -69,7 +69,7 @@ export function DarkEditorialHero() {
         />
 
         <motion.p
-          className="mt-2 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground/60"
+          className="mt-2 font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground"
           initial={reduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.5 }}

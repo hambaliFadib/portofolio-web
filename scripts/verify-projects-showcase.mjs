@@ -9,12 +9,21 @@ if (!output) throw new Error("PORTFOLIO_PROJECTS_OUTPUT_DIR must point to the re
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const results = [];
+const repositoryContracts = [
+  { id: "ai-test-case-generator", name: "Explore source: AI Test Case Generator on GitHub", href: "https://github.com/hambaliFadib/ai-test-case-generator" },
+  { id: "playwright-quality-framework", name: "Explore source: Playwright Quality Framework on GitHub", href: "https://github.com/hambaliFadib/playwright-quality-framework" },
+];
 try {
   for (const viewport of [
     { name: "desktop", width: 1280, height: 800 },
     { name: "mobile", width: 390, height: 844 },
   ]) {
     const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, reducedMotion: "no-preference" });
+    await context.route("https://github.com/**", (route) => route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><title>Intercepted GitHub destination</title>",
+    }));
     try {
       const page = await context.newPage();
       const failures = [];
@@ -26,18 +35,28 @@ try {
       assert.equal(await section.getByRole("heading", { level: 2 }).count(), 1);
       const artwork = section.locator("[data-ascii-lens]");
       assert.equal(await artwork.count(), 2);
-      for (const [index, id] of ["ai-test-case-generator", "playwright-quality-framework"].entries()) {
+      for (const [index, contract] of repositoryContracts.entries()) {
         const article = section.locator("article[data-project-feature]").nth(index);
-        assert.equal(await article.getAttribute("data-project-feature"), id);
+        assert.equal(await article.getAttribute("data-project-feature"), contract.id);
         const img = article.locator("[data-ascii-lens] img");
         await img.scrollIntoViewIfNeeded();
         await img.evaluate((el) => el instanceof HTMLImageElement && el.decode());
         assert.ok(await img.evaluate((el) => el instanceof HTMLImageElement && el.naturalWidth > 0), "project artwork must load");
-        const source = article.getByRole("link", { name: /Explore .* source on GitHub/ });
-        assert.match(await source.getAttribute("href") ?? "", /^https:\/\/github\.com\//);
+        const source = article.getByRole("link", { name: contract.name, exact: true });
+        assert.equal(await source.count(), 1, `${contract.id} must expose its exact repository link name`);
+        assert.equal((await source.innerText()).trim(), "Explore source", "the visible repository action remains concise");
+        assert.equal(await source.getAttribute("href"), contract.href, `${contract.id} repository destination must remain exact`);
+        assert.equal(await source.getAttribute("target"), "_blank", "repository action must open a separate browsing context");
+        assert.ok((await source.getAttribute("rel") ?? "").split(/\s+/).includes("noopener"), "external link must retain noopener");
+        const [popup] = await Promise.all([page.waitForEvent("popup"), source.click()]);
+        await popup.waitForLoadState("domcontentloaded");
+        assert.equal(popup.url(), contract.href, `${contract.id} action must open its expected GitHub repository`);
+        await popup.close();
+        // Clicking the repository link can scroll the page. Hover the image itself
+        // so Playwright restores its visibility before dispatching pointer events.
+        await img.hover();
         const bounds = await img.boundingBox();
         assert.ok(bounds && bounds.width > 0 && bounds.height > 0);
-        await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
         await article.locator("[data-ascii-lens] canvas").waitFor({ state: "visible", timeout: 5000 });
         assert.ok(await article.locator("[data-ascii-lens] canvas").evaluate((canvas) => canvas instanceof HTMLCanvasElement && canvas.width > 0), "magnified ASCII lens must render");
         await page.mouse.move(2, 2);
