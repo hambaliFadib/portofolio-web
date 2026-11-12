@@ -1,53 +1,29 @@
-﻿# Portfolio Setup
+﻿# Hambali Fadib — Portfolio
 
-## Environment Variables
+A Next.js portfolio with a single-page experience and three feature modules: Home, Navigation, and Theme. The interface is English-only. Clarity AI and its API have been retired.
 
-Copy `.env.example` to `.env` or `.env.local` and provide your real Cerebras credentials:
+Legacy routes such as /about, /contact, /projects, and /quality-thinking redirect to homepage anchors. Some destination sections are incomplete and remain known homepage technical debt.
 
-```bash
-CEREBRAS_API_KEY=your_key_here
-CEREBRAS_MODEL=gpt-oss-120b
-```
+## Development
 
-The browser never receives the secret. The chat UI calls `app/api/assistant/route.ts`, and that route sends the request to Cerebras server-side.
+Install locked dependencies and start the development server:
 
-## Production Checks
+    npm ci
+    npm run dev
 
-Run the local verification flow before deploying:
+## Validation
 
-```bash
-npm run typecheck
-npm run build
-npm run start
-```
+    npm run typecheck
+    npm run lint
+    npm run test:feature-boundaries
+    npm run build
 
-## Deployment Notes
+To run the browser regression suite against a production build, start the app in a separate terminal with npm run start, then run:
 
-This project requires a Node-capable deployment target because it uses:
+    npm run verify:browser
 
-- App Router server rendering
-- `app/api/assistant/route.ts`
-- server-side outbound requests to Cerebras
+The browser suite requires Playwright Chromium. It checks the B03 Theme Reveal and homepage/navigation behavior; known homepage anchor-target and responsive-overflow failures remain documented baseline issues.
 
-A static-only host is not enough for the AI assistant.
+## Deployment
 
-Before production deploy, make sure:
-
-- `CEREBRAS_API_KEY` is configured in the hosting platform
-- `CEREBRAS_MODEL` is set if you want to override the default model
-- the deployment platform allows outbound HTTPS requests to `https://api.cerebras.ai`
-
-## Portfolio Data Source
-
-The assistant is grounded from the portfolio data already maintained in the repo, primarily from:
-
-- `data/profile.ts`
-- `data/projects.ts`
-- `data/thinking.ts`
-- `data/about.ts`
-- `data/experience.ts`
-- `data/education.ts`
-- `data/framework.ts`
-- `data/real-decision-cases.ts`
-
-Update those source files to change what the assistant can safely answer.
+Vercel is the portfolio deployment target. Configure and operate deployment through the approved project workflow. This repository does not claim cross-repository CI/CD, branch protection, or automated production delivery.

@@ -1,0 +1,144 @@
+import { chromium } from 'playwright';
+import { createReliabilityObserver } from './reliability-observer.mjs';
+import { observeBrowserErrors } from '../../scripts/browser-error-observer.mjs';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const origin = process.env.PORTFOLIO_PREVIEW_URL ?? process.env.B03_PREVIEW_URL ?? 'http://127.0.0.1:3000';
+const homepageOutput = process.env.PORTFOLIO_HOMEPAGE_OUTPUT_DIR ?? process.env.B03_HOMEPAGE_OUTPUT_DIR;
+const output = homepageOutput
+  ? path.resolve(homepageOutput)
+  : path.join(here, 'captures', 'cleanup-final');
+await fs.mkdir(output, { recursive: true });
+const browser = await chromium.launch({ headless: true });
+const checks = [];
+const diagnostics = [];
+const reliability = createReliabilityObserver({ suite: 'homepage', origin });
+let lastPage = null;
+
+function check(name, passed, details = {}) { checks.push({ name, passed: Boolean(passed), details }); }
+
+try {
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 375, height: 812 },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+      colorScheme: 'dark', reducedMotion: 'no-preference', deviceScaleFactor: 1,
+      hasTouch: viewport.name === 'mobile', isMobile: viewport.name === 'mobile',
+    });
+    const page = await context.newPage();
+    lastPage = page;
+    reliability.observe(page, viewport.name);
+    const browserErrors = [];
+    const telemetryBlocked = [];
+    const expectedNavigationAborts = [];
+    observeBrowserErrors(page, { label: viewport.name, origin, errors: browserErrors, telemetryBlocked, expectedNavigationAborts });
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('theme')) localStorage.setItem('theme', 'dark');
+      localStorage.setItem('portfolio-locale', 'id');
+    });
+    await reliability.measure(viewport.name+'-navigation', page, () => page.goto(origin, { waitUntil: 'domcontentloaded' }));
+    await page.waitForSelector('section#top');
+    const hero = page.locator('section#top');
+    const languageState = await page.evaluate(() => ({
+      htmlLanguage: document.documentElement.lang,
+      navLabels: [...document.querySelectorAll('header nav ul a')].map(link => link.textContent.trim()),
+      heroLabel: document.querySelector('section#top')?.getAttribute('aria-label'),
+      heroCopy: document.querySelector('section#top')?.innerText,
+      storedLegacyLocale: localStorage.getItem('portfolio-locale'),
+      languageToggle: document.querySelector('[aria-label="Language selection"]') !== null,
+    }));
+    const englishOnly = languageState.htmlLanguage === 'en' &&
+      languageState.navLabels.join('|') === 'Home|Projects|Thinking|About' &&
+      languageState.heroLabel === 'QUALITY ENGINEERING' &&
+      languageState.heroCopy.toLowerCase().includes('software quality assurance engineer') &&
+      languageState.heroCopy.includes('Clarity before speed.') &&
+      languageState.storedLegacyLocale === 'id' &&
+      !languageState.languageToggle;
+    check(`${viewport.name}-english-only-content-ignores-legacy-locale`, englishOnly, languageState);
+    const heading = hero.getByRole('heading', { level: 1 }).first();
+    const cta = hero.locator('a[href="#qa-motion"]').first();
+    const image = hero.locator('img[alt="Hambali Fadib"]').first();
+    await reliability.measure(viewport.name+'-portrait-visible', page, () => image.waitFor({ state: 'visible' }));
+    await page.waitForFunction(() => {
+      const img = document.querySelector('section#top img[alt="Hambali Fadib"]');
+      return img?.complete && img.naturalWidth > 0;
+    }, null, { timeout: 10_000 });
+    const heroVisible = await hero.isVisible();
+    const headingVisible = await heading.isVisible();
+    const ctaVisible = await cta.isVisible();
+    const imageBox = await image.boundingBox();
+    const gridColumns = await hero.locator(':scope > div').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length);
+    check(`${viewport.name}-hero-and-portrait-render`, heroVisible && headingVisible && ctaVisible && imageBox.width > 0 && imageBox.x >= 0 && imageBox.x + imageBox.width <= viewport.width, { heroVisible, headingVisible, ctaVisible, imageBox, gridColumns });
+    check(`${viewport.name}-responsive-hero-columns`, viewport.name === 'desktop' ? gridColumns === 2 : gridColumns === 1, { gridColumns, viewportWidth: viewport.width });
+
+    const nav = page.locator('header nav ul').first();
+    const menuButton = page.getByRole('button', { name: 'Open menu' });
+    if (viewport.name === 'desktop') {
+      check('desktop-navigation-visible', await nav.isVisible() && await menuButton.isHidden(), { navVisible: await nav.isVisible(), menuHidden: await menuButton.isHidden() });
+    } else {
+      const mobileNavHidden = await nav.isHidden();
+      const menuVisible = await menuButton.isVisible();
+      await menuButton.click();
+      const dialog = page.getByRole('dialog', { name: 'Site navigation' });
+      const menuOpen = await dialog.isVisible();
+      check('mobile-navigation-opens', mobileNavHidden && menuVisible && menuOpen, { mobileNavHidden, menuVisible, menuOpen });
+      await dialog.getByRole('button', { name: 'Close menu' }).click();
+    }
+
+    const missingTargets = await page.evaluate(() => {
+      const anchors = [...document.querySelectorAll('header a[href^="#"], section#top a[href^="#"]')];
+      return [...new Set(anchors.map(anchor => anchor.getAttribute('href')).filter(href => href && href.length > 1 && !document.getElementById(href.slice(1))))];
+    });
+    check(`${viewport.name}-navigation-and-cta-anchor-targets-exist`, missingTargets.length === 0, { missingTargets });
+
+    await image.scrollIntoViewIfNeeded();
+    const box = await image.boundingBox();
+    const lensContainer = hero.locator('[data-ascii-lens]');
+    if (await lensContainer.count() !== 1) throw new Error('Hero must expose exactly one ASCII Lens');
+    const lensBox = await lensContainer.boundingBox();
+    const expectedLensDiameter = Math.round(Math.min(180, lensBox.width * 0.55));
+    await page.mouse.move(box.x + box.width * 0.48, box.y + box.height * 0.46);
+    const canvas = hero.locator('[data-ascii-lens] canvas');
+    await reliability.measure(viewport.name+'-ascii-canvas-visible', page, () => canvas.waitFor({ state: 'visible', timeout: 3_000 }));
+    const first = await canvas.evaluate(element => {
+      const pixels = element.getContext('2d').getImageData(0, 0, element.width, element.height).data;
+      let alphaPixels = 0; let colorVariety = new Set();
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] > 0) alphaPixels++;
+        if (pixels[i + 3] > 0) colorVariety.add(`${pixels[i]},${pixels[i + 1]},${pixels[i + 2]}`);
+      }
+      return { width: element.width, height: element.height, alphaPixels, colorVariety: colorVariety.size, dataUrl: element.toDataURL() };
+    });
+    await page.mouse.move(box.x + box.width * 0.69, box.y + box.height * 0.58);
+    await page.waitForFunction(previous => document.querySelector('section#top [data-ascii-lens] canvas')?.toDataURL() !== previous, first.dataUrl, { timeout: 3_000 });
+    const moved = await canvas.evaluate(element => ({ width: element.width, height: element.height, dataUrl: element.toDataURL() }));
+    await reliability.measure(viewport.name+'-ascii-screenshot', page, () => page.screenshot({ path: path.join(output, `${viewport.name}-ascii-lens-hover.png`), animations: 'disabled' }));
+    check(`${viewport.name}-ascii-lens-zooms-and-follows-pointer`, first.width === expectedLensDiameter && first.height === expectedLensDiameter && first.alphaPixels > 10_000 && first.colorVariety > 10 && moved.dataUrl !== first.dataUrl, { portraitWidth: box.width, lensContainerWidth: lensBox.width, expectedLensDiameter, initial: { width: first.width, height: first.height, alphaPixels: first.alphaPixels, colorVariety: first.colorVariety }, changedAfterPointerMove: moved.dataUrl !== first.dataUrl });
+    await page.mouse.move(10, 100);
+    await page.waitForFunction(() => !document.querySelector('section#top [data-ascii-lens] canvas'));
+    check(`${viewport.name}-ascii-lens-clears-on-pointer-exit`, await canvas.count() === 0, {});
+
+    check(`${viewport.name}-no-unexpected-browser-errors`, browserErrors.length === 0, { browserErrors });
+    diagnostics.push({ viewport: viewport.name, browserErrors, telemetryBlocked, expectedNavigationAborts });
+    await context.close();
+  }
+
+  const missing = checks.filter(item => !item.passed);
+  const report = { generatedAt: new Date().toISOString(), origin, browser: 'Playwright Chromium', checks, diagnostics, counts: { passed: checks.filter(item => item.passed).length, failed: missing.length }, note: 'The page remains a single-page portfolio; diagnostics fail on any application console, HTTP, or request error. Only an exact same-origin Vercel Insights 404 is classified as optional telemetry.' };
+  await fs.writeFile(path.join(output, 'repository-regression.json'), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(JSON.stringify({ counts: report.counts, failed: missing, diagnostics, output: path.join(output, 'repository-regression.json') }, null, 2));
+  // Every homepage assertion is authoritative; no special exemption for missing anchors.
+  if (checks.length !== 16 || missing.length !== 0) process.exitCode = 1;
+ } catch (error) {
+  console.error('homepage regression interrupted:', error?.message);
+  process.exitCode = 1;
+  throw error;
+} finally {
+  try { await reliability.write(path.join(output, 'reliability-observation.json')); }
+  finally { await browser.close(); }
+}

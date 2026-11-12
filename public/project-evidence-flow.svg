@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="Requirement to evidence illustration">
+<rect width="1200" height="720" fill="#101B29"/><g fill="none" stroke="#7E91AC" stroke-opacity=".24"><path d="M0 120h1200M0 240h1200M0 360h1200M0 480h1200M0 600h1200"/><path d="M160 0v720M320 0v720M480 0v720M640 0v720M800 0v720M960 0v720M1120 0v720"/></g>
+<text x="70" y="83" fill="#C9D8FF" font-family="monospace" letter-spacing="5" font-size="19">01 / TRACEABLE TEST DESIGN</text>
+<text x="70" y="180" fill="#F1EFE8" font-family="sans-serif" font-weight="700" font-size="68">Source → scenario</text><text x="70" y="252" fill="#F1EFE8" font-family="sans-serif" font-weight="700" font-size="68">→ evidence.</text>
+<path d="M85 354h1010" stroke="#FF7057" stroke-width="3"/><g font-family="monospace" font-size="25" fill="#F1EFE8"><text x="88" y="410">INPUT</text><text x="493" y="410">PLAN</text><text x="898" y="410">OUTPUT</text></g>
+<circle cx="85" cy="354" r="12" fill="#FF7057"/><circle cx="487" cy="354" r="12" fill="#FF7057"/><circle cx="890" cy="354" r="12" fill="#FF7057"/><g font-family="monospace" font-size="19" fill="#C9D8FF"><text x="88" y="460">Requirement ref</text><text x="493" y="460">Coverage audit</text><text x="898" y="460">Traceable cases</text></g>
+<text x="88" y="601" fill="#D9F17A" font-family="monospace" font-size="28">UNRESOLVED ≠ INVENTED</text><path d="M88 623h520" stroke="#D9F17A" stroke-width="2"/>
+<text x="88" y="669" fill="#8FA5C2" font-family="monospace" font-size="16">Conceptual architecture / illustrative only</text></svg>
